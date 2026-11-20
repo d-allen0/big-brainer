@@ -334,6 +334,81 @@ for (const { w, h } of SIZES) {
         }
       });
     });
+
+    describe(`Voice options at ${tag}`, { skip }, () => {
+      // Twelve voices with long technical names, like a phone with many installed voices.
+      const MANY_VOICES = () => {
+        window.Capacitor = { Plugins: { TextToSpeech: {
+          isLanguageSupported: async ({ lang }) => ({ supported: lang === "ar" }),
+          getSupportedVoices: async () => ({ voices: Array.from({ length: 12 }, (_, i) => ({
+            voiceURI: `v${i}`, name: `ar-xa-x-${"very-long-voice-name-".repeat(3)}${i}`, lang: i % 2 ? "ar-SA" : "ar-MA", localService: i % 3 !== 0, default: i === 1,
+          })) }),
+          speak: async () => {}, stop: async () => {}, openInstall: async () => {},
+        } } };
+      };
+      for (const font of [null, "FreeMono"]) {
+        it(`fits sideways, every control is big enough and on screen, and the choice is remembered${font ? ` (taller font: ${font})` : ""}`, async () => {
+          const ctx = await browser.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: 2, hasTouch: true, isMobile: true, bypassCSP: !!font });
+          const page = await ctx.newPage();
+          if (withVoice) await page.addInitScript(MANY_VOICES);
+          const errors = [];
+          page.on("pageerror", (e) => errors.push(e.message));
+          const open = async () => {
+            await page.goto(`${base}#/options`);
+            await page.reload();
+            await page.waitForSelector(".segmented button");
+            if (font) await page.addStyleTag({ content: `body, button, input { font-family: "${font}" !important; }` });
+            await page.waitForTimeout(150);
+          };
+          try {
+            await open();
+            const m = await page.evaluate(() => {
+              const box = (e) => { const r = e.getBoundingClientRect(); return { l: r.left, r: r.right, h: r.height }; };
+              return {
+                docW: document.documentElement.scrollWidth, vw: innerWidth,
+                choices: [...document.querySelectorAll(".voice-choice")].map(box),
+                speakers: [...document.querySelectorAll(".voice-row .speak-btn")].map(box),
+                speed: [...document.querySelectorAll(".segmented button")].map(box),
+              };
+            });
+            assert.ok(m.docW <= m.vw, `no horizontal overflow (${m.docW} vs ${m.vw})`);
+            assert.equal(m.choices.length, withVoice ? 13 : 1, "Automatic plus each voice");
+            assert.ok(m.choices.every((c) => c.h >= 52), "voice rows are at least 52px tall");
+            assert.ok(m.speakers.every((s) => s.r <= m.vw && s.l >= 0 && s.r - s.l >= 32), "every speaker button is fully on screen");
+            assert.ok(m.choices.every((c) => c.r <= m.vw && c.l >= 0));
+            assert.equal(m.speed.length, 3);
+            assert.ok(m.speed.every((s) => s.h >= 44 && s.l >= 0 && s.r <= m.vw), "the speed buttons are at least 44px tall and on screen");
+
+            // Choose a voice and a speed, then come back: both are remembered.
+            if (withVoice) await page.locator(".voice-choice").nth(2).click();
+            await page.locator(".segmented button", { hasText: "Slow" }).click();
+            await page.waitForTimeout(80);
+            await open();
+            assert.equal(await page.locator(".segmented button.active").textContent(), "Slow");
+            if (withVoice) assert.equal(await page.locator(".voice-choice.selected .voice-title").textContent(), "Voice 2");
+            else assert.ok(await page.locator(".note").count() > 0, "a plain note explains that no Arabic voice is available");
+            assert.deepEqual(errors, []);
+          } finally {
+            await ctx.close();
+          }
+        });
+      }
+
+      it("Home shows the Voice options button without scrolling sideways", async () => {
+        const { ctx, page, errors } = await newPage(w, h, withVoice);
+        try {
+          await page.goto(`${base}#/`);
+          await page.waitForSelector("a:text-is('Voice options')");
+          const m = await measure(page);
+          assert.ok(m.docW <= m.vw, "no horizontal overflow");
+          await page.click("a:text-is('Voice options')");
+          await page.waitForSelector(".segmented button");
+          assert.deepEqual(errors, []);
+        } finally {
+          await ctx.close();
+        }
+      });
+    });
   }
 }
 
