@@ -4,6 +4,7 @@
 
 import { createLettersScreen } from "./letters-screen.js";
 import { createVocabScreen } from "./vocab-screen.js";
+import { createQuizScreen } from "./quiz-screen.js";
 
 const view = document.getElementById("view");
 const title = document.getElementById("screen-title");
@@ -52,12 +53,14 @@ function homeScreen() {
 
 const lettersScreen = createLettersScreen({ h });
 const vocabScreen = createVocabScreen({ h });
+const quizScreen = createQuizScreen({ h });
 
 // route name -> { title, render }
 export const screens = {
   home: { title: "Big Brainer", render: homeScreen },
   alphabet: { title: "Letters", render: lettersScreen },
   cards: { title: "Flashcards", render: vocabScreen },
+  quiz: { title: "Quiz", render: quizScreen },
   quran: { title: "Quran reading", render: comingSoon("Quran reading") },
 };
 
