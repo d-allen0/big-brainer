@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'">
+  <meta name="color-scheme" content="light dark">
+  <title>Arabic Learner</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <h1 id="screen-title">Arabic Learner</h1>
+  </header>
+
+  <main id="view" aria-live="polite"></main>
+
+  <nav class="tabbar" aria-label="Primary">
+    <a href="#/home" data-route="home">Home</a>
+    <a href="#/alphabet" data-route="alphabet">Letters</a>
+    <a href="#/cards" data-route="cards">Cards</a>
+    <a href="#/quran" data-route="quran">Quran</a>
+  </nav>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
