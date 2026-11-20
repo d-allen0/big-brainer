@@ -1,0 +1,49 @@
+name: Tests
+
+# Runs the test suite in test/ on every push and pull request.
+# This is a separate workflow on purpose: a failing test shows a red mark on the commit,
+# but it can never stop the signed APK from building (see build-apk.yml).
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: test/package-lock.json
+
+      # The layout tests need a real Chrome. Fail loudly if the runner ever stops shipping one,
+      # instead of letting those tests skip themselves quietly.
+      - name: Check for Chrome
+        run: |
+          test -x /usr/bin/google-chrome
+          /usr/bin/google-chrome --version
+
+      - name: Install test dependencies
+        working-directory: test
+        run: npm ci --no-audit --no-fund
+
+      - name: Run tests
+        working-directory: test
+        env:
+          CHROME: /usr/bin/google-chrome
+        run: npm test
