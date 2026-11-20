@@ -1,0 +1,15 @@
+{
+  "name": "big-brainer-tests",
+  "private": true,
+  "type": "module",
+  "description": "Tests for the Big Brainer web app. Kept separate from the app's package.json so the APK build never installs these tools.",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "test": "node --test --test-concurrency=1"
+  },
+  "devDependencies": {
+    "fake-indexeddb": "^6.2.8",
+    "jsdom": "^31.0.1",
+    "playwright-core": "^1.65.1"
+  }
+}

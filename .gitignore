@@ -1,0 +1,11 @@
+# dependencies
+node_modules/
+
+# generated fresh in CI, never committed (see CLAUDE.md 3)
+android/
+
+# local files
+.DS_Store
+*.log
+*.keystore
+*.jks
