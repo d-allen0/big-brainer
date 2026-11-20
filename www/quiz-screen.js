@@ -1,4 +1,4 @@
-// Quiz screen: a mixed round of letters and words with three question types
+// Quiz screen: a mixed round of letters, words and phrases with three question types
 // (choose, listen and pick, type the answer). UI only. Logic lives in quiz.js.
 //
 // PACING RULES (CLAUDE.md section 1):
@@ -11,12 +11,13 @@
 import * as quiz from "./quiz.js";
 import * as alphabet from "./alphabet.js";
 import * as vocab from "./vocab.js";
+import * as phrasesMod from "./phrases.js";
 import * as srs from "./srs.js";
 import * as db from "./db.js";
 import * as tts from "./tts.js";
 
 const REQUEUE_GAP = 3;
-const DECKS = [alphabet.DECK, vocab.DECK];
+const DECKS = [alphabet.DECK, vocab.DECK, phrasesMod.DECK];
 
 /**
  * Build the screen. `h` is the app's DOM helper. Everything else is injectable for tests:
@@ -26,6 +27,7 @@ export function createQuizScreen({
   h,
   loadLetters = alphabet.loadLetters,
   loadWords = vocab.loadVocab,
+  loadPhrases = phrasesMod.loadPhrases,
   store = db,
   speech = tts,
   now = () => Date.now(),
@@ -69,7 +71,7 @@ export function createQuizScreen({
 
   async function quizView(setTitle) {
     setTitle("Quiz");
-    const [letters, words] = await Promise.all([loadLetters(), loadWords()]);
+    const [letters, words, phrases] = await Promise.all([loadLetters(), loadWords(), loadPhrases()]);
     const voice = await speech.checkArabic().catch(() => ({ ok: false }));
     const hasVoice = voice.ok === true;
 
@@ -92,7 +94,7 @@ export function createQuizScreen({
     async function startRound() {
       let cards = await freshCards();
       // Always something to quiz on: seed the suggested group and set. Progress is never overwritten.
-      await store.addCardsIfMissing(quiz.seedForQuiz({ cards, letters, words, now: now() }));
+      await store.addCardsIfMissing(quiz.seedForQuiz({ cards, letters, words, phrases, now: now() }));
       cards = await freshCards();
       latest = new Map(cards.map((c) => [c.id, c]));
       queue = quiz.pickQuizCards({ cards, now: now() }).map((c) => c.id);
@@ -116,7 +118,8 @@ export function createQuizScreen({
         // Wrong letters come from letters the learner has already met, when there are enough.
         const metIds = new Set([...latest.values()].filter((c) => c.deck === alphabet.DECK).map((c) => c.extra?.letterId));
         const met = letters.filter((l) => metIds.has(l.id));
-        const q = quiz.buildQuizQuestion({ card, letters, words, hasVoice, rng, letterPool: met.length >= 4 ? met : letters });
+        const q = quiz.buildQuizQuestion({ card, letters, words, phrases, hasVoice, rng, letterPool: met.length >= 4 ? met : letters });
+        const longText = q.deck === phrasesMod.DECK ? " long" : ""; // phrases are longer, so they are set a little smaller
         const word = q.deck === vocab.DECK ? words.find((w) => w.id === q.itemId) : null;
 
         let answered = false;
@@ -126,7 +129,7 @@ export function createQuizScreen({
         document.addEventListener("visibilitychange", onVisibility);
         cleanup = () => document.removeEventListener("visibilitychange", onVisibility);
 
-        const feedback = h("div", { class: "feedback", role: "status" });
+        const feedback = h("div", { class: "feedback" + longText, role: "status" });
         const speakMsg = h("p", { class: "speak-msg small", role: "status" });
         const setMsg = (t) => { speakMsg.textContent = t; };
         const actions = h("div", { class: "actions-bar" }); // pinned above the tab bar
@@ -143,7 +146,7 @@ export function createQuizScreen({
           const hearAgain = q.type === "choice" && !q.promptIsArabic; // the Arabic is only revealed now
           feedback.replaceChildren(
             hearAgain ? h("div", { class: "verdict-row" }, verdict, speakBtn(q.speakAfter, "Hear it again", setMsg)) : verdict,
-            ...quiz.explain({ question: q, letters, words, chosenId: correct ? null : chosenId }).map((line) => h("p", { class: "text small" }, line)),
+            ...quiz.explain({ question: q, letters, words, phrases, chosenId: correct ? null : chosenId }).map((line) => h("p", { class: "text small" }, line)),
             speakMsg);
           speech.speak(q.speakAfter).catch(() => {}); // the note above already explains missing voices
 
@@ -168,12 +171,12 @@ export function createQuizScreen({
           promptNode = h("div", { class: "prompt-row" },
             speakBtn(q.speakText, "Hear it", setMsg, () => { if (!answered) startedAt = clock(); }, " speak-big"));
         } else if (q.promptIsArabic) {
-          const speakWord = q.deck === vocab.DECK && q.kind === "ar2en"; // letters: the sound would give the answer away
+          const speakWord = (q.deck === vocab.DECK || q.deck === phrasesMod.DECK) && q.kind === "ar2en"; // letters: the sound would give the answer away
           promptNode = h("div", { class: "prompt-row" },
-            h("div", { class: "ar prompt", lang: "ar" }, q.prompt),
-            speakWord ? speakBtn(q.speakAfter, "Hear this word", setMsg) : null);
+            h("div", { class: "ar prompt" + longText, lang: "ar" }, q.prompt),
+            speakWord ? speakBtn(q.speakAfter, q.deck === phrasesMod.DECK ? "Hear this phrase" : "Hear this word", setMsg) : null);
         } else {
-          promptNode = h("div", { class: "prompt-en" }, q.prompt);
+          promptNode = h("div", { class: "prompt-en" + longText }, q.prompt);
         }
         parts.push(h("div", { class: "card center" }, h("p", { class: "text" }, q.instruction), promptNode));
 
@@ -206,7 +209,7 @@ export function createQuizScreen({
           const buttons = q.choices.map((choice) =>
             h("button", {
               type: "button",
-              class: "choice" + (q.choicesAreArabic ? " choice-ar" : ""),
+              class: "choice" + (q.choicesAreArabic ? " choice-ar" + longText : ""),
               dir: "auto",
               ...(q.choicesAreArabic ? { lang: "ar" } : {}),
               onclick: () => {
@@ -223,7 +226,7 @@ export function createQuizScreen({
                 });
               },
             }, choice.text));
-          parts.push(h("div", { class: "choices" }, buttons));
+          parts.push(h("div", { class: "choices" + longText }, buttons));
         }
 
         if (queue.length > 0) {

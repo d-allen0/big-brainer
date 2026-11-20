@@ -966,6 +966,7 @@ describe("Quiz", () => {
   const seenStore = () => memoryStore([
     ...[1, 2].flatMap((g) => alphabet.cardsForGroup(parsedLetters, g, T0)),
     ...[1, 2].flatMap((s) => vocabLogic.cardsForSet(parsedWords, s, T0)),
+    ...[1, 2].flatMap((s) => phraseLogic.cardsForSet(phraseList, s, T0)),
   ].map((c) => ({ ...c, lastReviewed: T0 - 1000, reps: 1, interval: 1, due: T0 + 86_400_000 })));
 
   function setup({ store = memoryStore(), voice = { ok: true }, seed = 1, tick = { now: 0 } } = {}) {
@@ -977,7 +978,7 @@ describe("Quiz", () => {
       openVoiceInstall: async () => { speech.opened = true; },
     };
     const screen = createQuizScreen({
-      h, loadLetters: async () => parsedLetters, loadWords: async () => parsedWords, store, speech,
+      h, loadLetters: async () => parsedLetters, loadWords: async () => parsedWords, loadPhrases: async () => phraseList, store, speech,
       now: () => T0, clock: () => tick.now, rng: alphabet.seededRng(seed),
     });
     return { store, speech, spokenHere, tick, mount: async () => { document.querySelector("#view").replaceChildren(await screen({ parts: ["quiz"] })); await sleep(20); } };
@@ -1007,8 +1008,13 @@ describe("Quiz", () => {
         assert.equal(ctx.spokenHere.length, before + 1, "the speaker speaks when pressed");
         const said = ctx.spokenHere.at(-1);
         const letter = letters.find((l) => l.name === said);
-        if (letter) { deck = "alphabet"; right = letter.char; } else { deck = "vocab"; right = words.find((w) => w.ar === said).en; }
-      } else if (ins === INS.ar2en) { deck = "vocab"; right = words.find((w) => w.ar === promptText()).en; }
+        const phrase = phraseList.find((p) => p.ar === said);
+        if (letter) { deck = "alphabet"; right = letter.char; }
+        else if (phrase) { deck = "phrase"; right = phrase.en; }
+        else { deck = "vocab"; right = words.find((w) => w.ar === said).en; }
+      } else if (ins === INS.phraseAr2en) { deck = "phrase"; right = phraseList.find((p) => p.ar === promptText()).en; }
+      else if (ins === INS.phraseEn2ar) { deck = "phrase"; right = phraseList.find((p) => p.en === promptText()).ar; }
+      else if (ins === INS.ar2en) { deck = "vocab"; right = words.find((w) => w.ar === promptText()).en; }
       else if (ins === INS.en2ar) { deck = "vocab"; right = words.find((w) => w.en === promptText()).ar; }
       else {
         deck = "alphabet";
@@ -1039,7 +1045,35 @@ describe("Quiz", () => {
     await go("#/quiz/whatever", () => $(".choice, .type-input, .speak-big"));
   });
 
-  it("a learner's first quiz is plain multiple choice, mixing letters and words", async () => {
+  it("phrase questions never ask for typing, and a wrong phrase answer explains and returns", async () => {
+    const only = memoryStore(phraseLogic.cardsForSet(phraseList, 1, T0).map((c) => ({ ...c, lastReviewed: T0 - 1000, reps: 1, interval: 1, due: T0 + 86_400_000 })));
+    const ctx = setup({ store: only, seed: 5 });
+    await ctx.mount();
+    const isPhrase = () => /phrase/.test($(".card.center p.text").textContent);
+    let asked = 0, phraseQs = 0, sawWrong = false;
+    while (inRound() && asked < 30) {
+      const phrase = isPhrase();
+      if (phrase) assert.notEqual(kindNow(), "type", "phrases are never typed");
+      const wrongNow = phrase && !sawWrong;
+      const { deck } = await solve(ctx, { wrong: wrongNow });
+      if (phrase) {
+        phraseQs++;
+        assert.equal(deck, "phrase");
+      }
+      if (wrongNow) {
+        sawWrong = true;
+        assert.ok(text().includes("Not quite."));
+        assert.ok(text().includes("means"), "a short note on what the phrase means");
+        assert.ok(!SPEED_WORDS.test(text()));
+      }
+      asked++;
+      await nextQuestion();
+    }
+    assert.ok(phraseQs >= 3, `phrase questions came up (${phraseQs})`);
+    assert.ok(sawWrong);
+  });
+
+  it("a learner's first quiz is plain multiple choice, mixing letters, words and phrases", async () => {
     const ctx = setup();
     await ctx.mount();
     audit("quiz first round");
@@ -1059,11 +1093,11 @@ describe("Quiz", () => {
       assert.ok(asked < 40);
     }
     assert.equal(asked, 10);
-    assert.deepEqual([...decks].sort(), ["alphabet", "vocab"], "letters and words are mixed");
+    assert.deepEqual([...decks].sort(), ["alphabet", "phrase", "vocab"], "letters, words and phrases are mixed");
     audit("quiz summary");
     assert.ok(text().includes("10 of 10 answers were right."));
     assert.ok(hasButton("Keep going"));
-    assert.equal(ctx.store.cards.size, 38, "seeded the suggested group and set");
+    assert.equal(ctx.store.cards.size, 58, "seeded the suggested letter group, word set and phrase set");
   });
 
   it("a wrong answer is calm, shows the right one, costs nothing, and comes back in the round", async () => {
@@ -1283,7 +1317,7 @@ describe("Quiz", () => {
     await solve(ctx);
     assert.ok(text().includes("Could not save this answer: disk full"));
     assert.ok(hasButton("Next", "Finish round"));
-    const broken = createQuizScreen({ h, loadLetters: async () => parsedLetters, loadWords: async () => parsedWords, store: { getAllCards: async () => { throw new Error("storage unavailable"); } }, speech: { checkArabic: async () => ({ ok: true }) } });
+    const broken = createQuizScreen({ h, loadLetters: async () => parsedLetters, loadWords: async () => parsedWords, loadPhrases: async () => phraseList, store: { getAllCards: async () => { throw new Error("storage unavailable"); } }, speech: { checkArabic: async () => ({ ok: true }) } });
     await assert.rejects(broken({ parts: ["quiz"] }), /storage unavailable/);
   });
 });
