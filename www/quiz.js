@@ -11,6 +11,7 @@
 import * as srs from "./srs.js";
 import * as alphabet from "./alphabet.js";
 import * as vocab from "./vocab.js";
+import * as phrasesMod from "./phrases.js";
 
 export const QUIZ_SIZE = 10;
 export const TYPES = Object.freeze(["choice", "listen", "type"]);
@@ -111,24 +112,26 @@ export function checkTyped(input, word, allWords = []) {
 // ---- choosing what to ask ----
 
 /** Cards to add so a quiz is never empty: the suggested letter group and word set. Never overwrites progress. */
-export function seedForQuiz({ cards, letters, words, now }) {
+export function seedForQuiz({ cards, letters, words, phrases = [], now }) {
   const alpha = cards.filter((c) => c.deck === alphabet.DECK);
   const vocabCards = cards.filter((c) => c.deck === vocab.DECK);
+  const phraseCards = cards.filter((c) => c.deck === phrasesMod.DECK);
   return [
     ...alphabet.cardsForGroup(letters, alphabet.suggestedGroup(alpha, letters), now),
     ...vocab.cardsForSet(words, vocab.suggestedSet(vocabCards, words), now),
+    ...(phrases.length ? phrasesMod.cardsForSet(phrases, phrasesMod.suggestedSet(phraseCards, phrases), now) : []),
   ];
 }
 
 /**
- * The cards for one quiz: letters and words interleaved, each deck weakest-first
- * (see srs.practiceOrder). If one deck has too few, the other fills the round.
+ * The cards for one quiz: letters, words and phrases interleaved, each deck weakest-first
+ * (see srs.practiceOrder). If a deck has too few, the others fill the round.
  */
 export function pickQuizCards({ cards, now, size = QUIZ_SIZE }) {
   if (!Number.isInteger(size) || size < 0) throw new RangeError("size must be a non-negative integer");
-  const lists = [alphabet.DECK, vocab.DECK].map((deck) => srs.practiceOrder(cards, now, { deck, limit: size }));
+  const lists = [alphabet.DECK, vocab.DECK, phrasesMod.DECK].map((deck) => srs.practiceOrder(cards, now, { deck, limit: size }));
   const out = [];
-  for (let i = 0; out.length < size && (i < lists[0].length || i < lists[1].length); i++) {
+  for (let i = 0; out.length < size && lists.some((l) => i < l.length); i++) {
     for (const list of lists) if (list[i] && out.length < size) out.push(list[i]);
   }
   return out;
@@ -143,6 +146,9 @@ const INSTRUCTION = {
   listenLetter: "Press the speaker button, then choose the letter you hear.",
   listenWord: "Press the speaker button, then choose what the word means.",
   type: "Type what this word means.",
+  phraseAr2en: "What does this phrase mean?",
+  phraseEn2ar: "Which Arabic phrase means this?",
+  listenPhrase: "Press the speaker button, then choose what the phrase means.",
 };
 export const INSTRUCTIONS = Object.freeze({ ...INSTRUCTION });
 
@@ -166,7 +172,7 @@ function pickType(allowed, rng) {
  *     choices (null for "type"), choicesAreArabic, answerId, answerText,
  *     speakText (what the speaker button says, "listen" only), speakAfter (spoken after answering) }
  */
-export function buildQuizQuestion({ card, letters, words, hasVoice = false, rng = Math.random, letterPool = letters, choiceCount = 4 }) {
+export function buildQuizQuestion({ card, letters, words, phrases = [], hasVoice = false, rng = Math.random, letterPool = letters, choiceCount = 4 }) {
   if (!card || !card.extra) throw new TypeError("buildQuizQuestion requires a card");
   const seen = card.lastReviewed != null;
   const base = { cardId: card.id, deck: card.deck, kind: card.extra.kind };
@@ -232,6 +238,31 @@ export function buildQuizQuestion({ card, letters, words, hasVoice = false, rng 
     };
   }
 
+  if (card.deck === phrasesMod.DECK) {
+    const phrase = phrases.find((p) => p.id === card.extra.phraseId);
+    if (!phrase) throw new RangeError(`unknown phrase: ${card.extra.phraseId}`);
+    const allowed = ["choice"];
+    if (seen && hasVoice && card.extra.kind === "ar2en") allowed.push("listen"); // never "type" for phrases
+    const type = pickType(allowed, rng);
+
+    if (type === "listen") {
+      const q = phrasesMod.buildQuestion({ phrase, kind: "ar2en", phrases, rng, choiceCount });
+      return {
+        ...base, type, itemId: phrase.id, instruction: INSTRUCTION.listenPhrase,
+        prompt: null, promptIsArabic: false, choices: q.choices, choicesAreArabic: false,
+        answerId: q.answerId, answerText: phrase.en, speakText: phrase.ar, speakAfter: phrase.ar,
+      };
+    }
+    const q = phrasesMod.buildQuestion({ phrase, kind: card.extra.kind, phrases, rng, choiceCount });
+    return {
+      ...base, type, itemId: phrase.id,
+      instruction: card.extra.kind === "ar2en" ? INSTRUCTION.phraseAr2en : INSTRUCTION.phraseEn2ar,
+      prompt: q.prompt, promptIsArabic: q.promptIsArabic, choices: q.choices, choicesAreArabic: q.choicesAreArabic,
+      answerId: q.answerId, answerText: q.choices.find((c) => c.id === q.answerId).text,
+      speakText: null, speakAfter: phrase.ar,
+    };
+  }
+
   throw new RangeError(`unknown deck: ${card.deck}`);
 }
 
@@ -239,12 +270,17 @@ export function buildQuizQuestion({ card, letters, words, hasVoice = false, rng 
  * Calm feedback lines after an answer. `chosenId` is the id of the item the learner picked or
  * typed (null if they typed something that matches nothing).
  */
-export function explain({ question, letters, words, chosenId = null }) {
+export function explain({ question, letters, words, phrases = [], chosenId = null }) {
   if (!question) throw new TypeError("explain requires a question");
   if (question.deck === alphabet.DECK) {
     const letter = letters.find((l) => l.id === question.itemId);
     const chosen = chosenId ? letters.find((l) => l.id === chosenId) ?? null : null;
     return alphabet.mistakeNote({ letter, chosen });
+  }
+  if (question.deck === phrasesMod.DECK) {
+    const phrase = phrases.find((p) => p.id === question.itemId);
+    const chosen = chosenId ? phrases.find((p) => p.id === chosenId) ?? null : null;
+    return phrasesMod.mistakeNote({ phrase, chosen });
   }
   const word = words.find((w) => w.id === question.itemId);
   const chosen = chosenId ? words.find((w) => w.id === chosenId) ?? null : null;

@@ -13,9 +13,12 @@ const Q = await import(path.join(WWW, "quiz.js"));
 const srs = await import(path.join(WWW, "srs.js"));
 const A = await import(path.join(WWW, "alphabet.js"));
 const V = await import(path.join(WWW, "vocab.js"));
+const P = await import(path.join(WWW, "phrases.js"));
 
 const letters = A.parseLetters(JSON.parse(read("letters.json")));
 const words = V.parseVocab(JSON.parse(read("vocab.json")));
+const phrases = P.parsePhrases(JSON.parse(read("phrases.json")));
+const phraseCard = (id, kind = "ar2en") => P.cardsForPhrase(phrases.find((p) => p.id === id), T0).find((c) => c.extra.kind === kind);
 const wordById = Object.fromEntries(words.map((w) => [w.id, w]));
 const T0 = 1_700_000_000_000;
 const G = srs.GRADES;
@@ -311,6 +314,83 @@ describe("quiz: choosing the cards", () => {
     assert.equal(Q.pickQuizCards({ cards: pool, now: T0, size: 4 }).length, 4);
     assert.deepEqual(Q.pickQuizCards({ cards: pool, now: T0, size: 0 }), []);
     for (const bad of [-1, 2.5, "3", NaN]) assert.throws(() => Q.pickQuizCards({ cards: pool, now: T0, size: bad }), RangeError);
+  });
+});
+
+describe("quiz: phrases", () => {
+  const pid = phrases[0].id;
+  const rngFrom = (vals) => { let i = 0; return () => vals[i++ % vals.length]; };
+
+  it("a new phrase card is plain multiple choice, in both directions", () => {
+    for (const kind of ["ar2en", "en2ar"]) {
+      const q = Q.buildQuizQuestion({ card: phraseCard(pid, kind), letters, words, phrases, hasVoice: true });
+      assert.equal(q.type, "choice");
+      assert.equal(q.deck, "phrase");
+      assert.equal(q.choices.length, 4);
+      assert.equal(q.instruction, kind === "ar2en" ? "What does this phrase mean?" : "Which Arabic phrase means this?");
+      assert.equal(q.choicesAreArabic, kind === "en2ar");
+    }
+  });
+
+  it("never asks a phrase to be typed, even when seen", () => {
+    const types = new Set();
+    for (let i = 0; i < 300; i++) {
+      for (const kind of ["ar2en", "en2ar"]) {
+        types.add(Q.buildQuizQuestion({ card: seenCard(phraseCard(pid, kind)), letters, words, phrases, hasVoice: true }).type);
+      }
+    }
+    assert.ok(!types.has("type"));
+    assert.ok(types.has("listen") && types.has("choice"));
+  });
+
+  it("listen questions need a voice, a seen card and the ar2en direction", () => {
+    const noVoice = new Set(), en2ar = new Set();
+    for (let i = 0; i < 200; i++) {
+      noVoice.add(Q.buildQuizQuestion({ card: seenCard(phraseCard(pid)), letters, words, phrases, hasVoice: false }).type);
+      en2ar.add(Q.buildQuizQuestion({ card: seenCard(phraseCard(pid, "en2ar")), letters, words, phrases, hasVoice: true }).type);
+    }
+    assert.deepEqual([...noVoice], ["choice"]);
+    assert.deepEqual([...en2ar], ["choice"]);
+  });
+
+  it("a listen question speaks the Arabic phrase and shows English answers", () => {
+    const q = Q.buildQuizQuestion({ card: seenCard(phraseCard(pid)), letters, words, phrases, hasVoice: true, rng: rngFrom([0.99, 0.5]) });
+    assert.equal(q.type, "listen");
+    assert.equal(q.speakText, phrases[0].ar);
+    assert.equal(q.prompt, null);
+    assert.equal(q.answerText, phrases[0].en);
+    assert.equal(q.choicesAreArabic, false);
+    assert.equal(q.instruction, "Press the speaker button, then choose what the phrase means.");
+  });
+
+  it("explain names the phrase and, for a wrong pick, what the pick means", () => {
+    const q = Q.buildQuizQuestion({ card: phraseCard(pid), letters, words, phrases });
+    const other = phrases[1];
+    const lines = Q.explain({ question: q, letters, words, phrases, chosenId: other.id });
+    assert.ok(lines[0].includes(phrases[0].en));
+    assert.ok(lines.some((l) => l.includes(other.en)));
+  });
+
+  it("a round mixes letters, words and phrases", () => {
+    const cards = [
+      ...A.cardsForGroup(letters, 1, T0), ...V.cardsForSet(words, 1, T0), ...P.cardsForSet(phrases, 1, T0),
+    ];
+    const decks = new Set(Q.pickQuizCards({ cards, now: T0 }).map((c) => c.deck));
+    assert.deepEqual([...decks].sort(), ["alphabet", "phrase", "vocab"]);
+  });
+
+  it("phrases fill the round when the other decks are short, and it is never empty", () => {
+    const only = P.cardsForSet(phrases, 1, T0);
+    assert.equal(Q.pickQuizCards({ cards: only, now: T0 }).length, 10);
+    assert.equal(Q.pickQuizCards({ cards: only.slice(0, 3), now: T0 }).length, 3);
+  });
+
+  it("seeding adds the suggested phrase set only when phrases are given, and keeps old callers working", () => {
+    const withP = Q.seedForQuiz({ cards: [], letters, words, phrases, now: T0 });
+    assert.ok(withP.some((c) => c.deck === "phrase"));
+    const without = Q.seedForQuiz({ cards: [], letters, words, now: T0 });
+    assert.ok(!without.some((c) => c.deck === "phrase"));
+    assert.ok(without.some((c) => c.deck === "alphabet") && without.some((c) => c.deck === "vocab"));
   });
 });
 
