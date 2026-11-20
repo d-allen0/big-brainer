@@ -5,6 +5,7 @@
 import { createLettersScreen } from "./letters-screen.js";
 import { createVocabScreen } from "./vocab-screen.js";
 import { createQuizScreen } from "./quiz-screen.js";
+import { createReadScreen } from "./read-screen.js";
 import { createOptionsScreen, PREFS_KEY } from "./options-screen.js";
 import * as tts from "./tts.js";
 import * as db from "./db.js";
@@ -27,13 +28,6 @@ export function h(tag, attrs = {}, ...children) {
     el.append(child.nodeType ? child : document.createTextNode(String(child)));
   }
   return el;
-}
-
-function comingSoon(name) {
-  return () =>
-    h("div", { class: "card" },
-      h("h2", {}, name),
-      h("p", {}, "Coming soon."));
 }
 
 // Home never shows counts, due dates or deadlines: practice is always available.
@@ -65,6 +59,7 @@ const lettersScreen = createLettersScreen({ h });
 const vocabScreen = createVocabScreen({ h });
 const quizScreen = createQuizScreen({ h });
 const optionsScreen = createOptionsScreen({ h });
+const readScreen = createReadScreen({ h });
 
 // route name -> { title, render }
 export const screens = {
@@ -73,7 +68,7 @@ export const screens = {
   cards: { title: "Flashcards", render: vocabScreen },
   quiz: { title: "Quiz", render: quizScreen },
   options: { title: "Voice options", render: optionsScreen },
-  read: { title: "Read", render: comingSoon("Reading") },
+  read: { title: "Read", render: readScreen },
 };
 
 /**

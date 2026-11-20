@@ -188,6 +188,47 @@ main a.letter-btn { color: var(--text); }
 .forms { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; text-align: center; }
 .form-cell .ar { font-size: 2.2rem; line-height: 1.6; }
 
+/* ---- read: dialogue list and chat bubbles ---- */
+.dialogue-list { display: flex; flex-direction: column; gap: 8px; }
+.dialogue-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 56px;
+  padding: 12px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  text-decoration: none;
+}
+.dialogue-title { flex: 1; font-weight: 650; }
+.dialogue-meta { color: var(--muted); font-size: 0.9rem; }
+
+.bubbles { display: flex; flex-direction: column; gap: 10px; margin: 8px 0; }
+.bubble-row { display: flex; align-items: center; gap: 8px; }
+.bubble-row.who-b { flex-direction: row-reverse; }
+.bubble {
+  flex: 1;
+  min-width: 0;
+  max-width: 85%;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+.bubble-row.who-b .bubble { background: var(--ok-bg); }
+.bubble-row.playing .bubble { outline: 2px solid var(--accent); }
+.bubble-who { display: block; color: var(--muted); font-size: 0.8rem; font-weight: 650; }
+.bubble-ar { display: block; font-size: 1.5rem; line-height: 1.7; }
+.bubble-detail { margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--border); font-size: 0.9rem; }
+.bubble-detail[hidden] { display: none; }
+.bubble-tr { color: var(--muted); }
+
 /* ---- pinned action bar (practice, lesson, round summary) ----
    Always sits just above the tab bar, so Next / Practice never needs a scroll. */
 .actions-bar {
