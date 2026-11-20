@@ -205,6 +205,70 @@ for (const { w, h } of SIZES) {
         }
       });
     });
+
+    describe(`Quiz at ${tag}`, { skip }, () => {
+      it("every question type fits, and Next / Check are always visible", async () => {
+        const { ctx, page, errors } = await newPage(w, h, withVoice);
+        try {
+          // A fixed random sequence keeps this test repeatable.
+          await page.addInitScript(() => { let s = 12345; Math.random = () => ((s = (s * 1664525 + 1013904223) % 4294967296) / 4294967296); });
+          await page.goto(`${base}#/quiz`);
+          await page.waitForSelector(".choice, .type-input, .speak-big");
+          await page.waitForTimeout(150);
+          const want = withVoice ? ["choice", "listen", "type"] : ["choice", "type"];
+          const seen = new Set();
+          for (let i = 0; i < 500 && seen.size < want.length; i++) {
+            if (await page.$("button:text-is('Keep going')")) {
+              await page.click("button:text-is('Keep going')");
+              await page.waitForSelector(".choice, .type-input, .speak-big");
+              continue;
+            }
+            const kind = (await page.$(".type-input")) ? "type" : (await page.$(".speak-big")) ? "listen" : "choice";
+            if (!withVoice) assert.notEqual(kind, "listen", "no listening question without a voice");
+            if (!seen.has(kind)) {
+              let m = await measure(page);
+              if (kind === "type") {
+                const box = await page.evaluate(() => {
+                  const b = (e) => { const r = e.getBoundingClientRect(); return { top: r.top, bottom: r.bottom }; };
+                  return { input: b(document.querySelector(".type-input")), check: b([...document.querySelectorAll("button")].find((x) => x.textContent === "Check")) };
+                });
+                assert.ok(inView(m, box.input) && inView(m, box.check), "type: the input and Check are visible");
+                await page.fill(".type-input", "zzzzzz"); // wrong: the longest feedback
+                await page.click("button:text-is('Check')");
+              } else {
+                assert.ok(m.choices.every((c) => c.bottom <= m.tabTop + 0.5), `${kind}: all 4 answers above the tab bar`);
+                assert.equal(new Set(m.choices.map((c) => c.left)).size, SHORT(h) ? 2 : 1, `${kind}: column layout`);
+                if (kind === "listen") {
+                  const sp = await page.evaluate(() => { const r = document.querySelector(".speak-big").getBoundingClientRect(); return { top: r.top, bottom: r.bottom }; });
+                  assert.ok(inView(m, sp), "listen: the speaker button is visible");
+                }
+                if (withVoice) assert.ok(m.docH <= m.vh + 1, `${kind}: question needs no scrolling (doc ${m.docH} vs ${m.vh})`);
+                await (await page.$$(".choice"))[0].click();
+              }
+              await page.waitForTimeout(60);
+              m = await measure(page);
+              assert.ok(inView(m, m.next), `${kind}: Next visible after answering`);
+              if (withVoice) assert.ok(m.docH <= m.vh + 1, `${kind}: no scrolling after answering (doc ${m.docH} vs ${m.vh})`);
+              seen.add(kind);
+            } else if (kind === "type") {
+              await page.fill(".type-input", "zzzzzz");
+              await page.click("button:text-is('Check')");
+            } else {
+              await (await page.$$(".choice"))[0].click();
+            }
+            await page.waitForTimeout(30);
+            await page.locator("button:text-is('Next'), button:text-is('Finish round')").first().click();
+            await page.waitForTimeout(30);
+          }
+          assert.equal(seen.size, want.length, `saw every type (${[...seen]})`);
+          const m = await measure(page);
+          assert.ok(m.docW <= m.vw, "no horizontal overflow");
+          assert.deepEqual(errors, []);
+        } finally {
+          await ctx.close();
+        }
+      });
+    });
   }
 }
 

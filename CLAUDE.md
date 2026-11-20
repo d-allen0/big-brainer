@@ -81,14 +81,17 @@ Add any new violation here the moment it is found, then fix it.
   - `vocab.json`: word list (id, vowelled Arabic, transliteration, meaning, part of speech) in teaching order, roughly common-first. **Not a measured frequency list.** 100 words, written by Claude, unreviewed.
   - `vocab.js`: pure logic for words: validation (unique ids, Arabic and meanings), sets of 10 (`SET_SIZE`), cards (`ar2en`, `en2ar`), `setMastery`, `suggestedSet`, `buildQuestion` (wrong options from the same set and part of speech first) and `mistakeNote`. Reuses `farAhead` from `alphabet.js`.
   - `vocab-screen.js`: the Cards UI (sets overview, practice). Built with `createVocabScreen({ h, ...injectables })`, same pattern as the Letters screen.
+  - `quiz.js`: pure logic for quizzes: `pickQuizCards` (letters and words interleaved, weakest first), `buildQuizQuestion` (types `choice`, `listen`, `type`), `checkTyped`, `speedGrade`, `seedForQuiz`, `explain`. A card never seen before is always plain multiple choice. `listen` needs a working Arabic voice. `type` is for words only (type the English meaning).
+  - `quiz-screen.js`: the Quiz UI, built with `createQuizScreen({ h, ...injectables })` (storage, speech, `now`, `clock`, `rng` can be swapped in tests). Reuses the practice layout.
 - **Security and offline:** the CSP in `index.html` forbids inline scripts and styles and any external request. Keep it that way. Build DOM with the `h()` helper, not `innerHTML` with dynamic content.
-- **Routing:** hash routes. The first segment picks the screen; screens receive `{ parts, setTitle }`. Letters sub-routes: `#/alphabet`, `#/alphabet/letter/<id>`, `#/alphabet/practice`, `#/alphabet/practice/group/<n>`, `#/alphabet/practice/letter/<id>`. Unknown ids fall back to the grid. Cards sub-routes: `#/cards`, `#/cards/practice`, `#/cards/practice/set/<n>`; anything unknown falls back to the sets overview. Hardware Back works because every view is a hash route.
+- **Routing:** hash routes. The first segment picks the screen; screens receive `{ parts, setTitle }`. Letters sub-routes: `#/alphabet`, `#/alphabet/letter/<id>`, `#/alphabet/practice`, `#/alphabet/practice/group/<n>`, `#/alphabet/practice/letter/<id>`. Unknown ids fall back to the grid. Cards sub-routes: `#/cards`, `#/cards/practice`, `#/cards/practice/set/<n>`; anything unknown falls back to the sets overview. Quiz route: `#/quiz` (opened by the "Take a quiz" button on Home; the tab bar stays at 4 tabs). Hardware Back works because every view is a hash route.
 - **Practice layout (Letters and Cards share it):**
   - The action bar (`.actions-bar`: Next, Skip, Keep going, Practice this letter) is pinned just above the tab bar, so the learner never scrolls to continue.
   - Answers are **one full-width column** so the app works one-handed. A 2x2 grid is used **only on short screens** (`max-height: 700px`) where a single column would not fit. Do not change this without asking the owner.
   - Target: a whole question, its feedback and Next fit on one phone screen with no scrolling (checked at 360x640, 393x852, 412x915). Feedback wording is the owner's favourite: change layout, not wording.
   - Notes (heads-up, voice banner) are compact rows: text plus a small button side by side.
 - **Practice rules in code:** rounds of 10; a correct answer grades "good", an answer that is not right grades "again" and the card returns 3 questions later; Skip moves a card to the end without grading; nothing advances on a timer.
+- **Quiz rules in code:** rounds of 10, mixed letters and words. Nothing is spoken before an answer; the listen question has a 🔊 button the learner presses (never autoplay). Answer speed is measured silently and only picks the grade (`quiz.speedGrade`: wrong = again; quick and right = easy; slow and right = hard; first view, interrupted (app left, or over 60 s) = good). Never show a timer, speed or "faster" wording, and slow is never a lapse. Typed answers: case, accents, punctuation and a leading "to/the/a" are ignored; one slip is accepted only for answers of 6+ letters ("Yes! Just a small slip in spelling."); an exact match of a different word's meaning is wrong and says what it means. An empty Check shows a gentle message and does not grade. Without an Arabic voice there are no listen questions.
 - **Pure logic stays pure.** Keep logic (scheduling, question building, validation) free of the DOM and storage so it can be tested in Node.
 - **Android project:** `android/` is generated fresh in CI and is not committed.
 
@@ -134,12 +137,11 @@ Also:
 
 ## 5. Roadmap and status
 
-Done: test suite in `test/`, app shell, IndexedDB storage, SM-2 engine, text-to-speech wrapper, alphabet data and logic, pacing foundation, Letters screen (grid, lessons, practice), signing and CI, compact one-screen practice layout, vocab flashcards (100 words, 10 sets, both directions, multiple choice).
+Done: test suite in `test/`, app shell, IndexedDB storage, SM-2 engine, text-to-speech wrapper, alphabet data and logic, pacing foundation, Letters screen (grid, lessons, practice), signing and CI, compact one-screen practice layout, vocab flashcards (100 words, 10 sets, both directions, multiple choice), quiz engine (mixed letters and words; choose, listen-and-pick, type-the-answer; silent speed grading).
 
 Next, in order:
 1. Grow vocab: extend the list (target about 200) using an open frequency list to rank words (Leipzig Corpora, CC BY 4.0, is the candidate; Kelly is non-commercial, OpenSubtitles is share-alike, CAMeL's licence is unconfirmed; credit whatever is used), then add a Quran-focused word track. Quranic text and word lists for it must come from a verified source.
-2. Quiz engine (answer-speed grading is allowed here, but never time pressure or timers shown to the learner).
-3. Grammar lessons, Quran reading track, handwriting canvas.
+2. Grammar lessons, Quran reading track, handwriting canvas.
 
 ### Known gaps
 
@@ -147,4 +149,5 @@ Next, in order:
 - All 100 words in `vocab.json` (Arabic forms, transliteration, meanings, order) are unreviewed by a fluent speaker, and the order is not a measured frequency ranking.
 - Text-to-speech output and the Arabic fonts for the word lists have not been checked on a real device. The owner has confirmed on their phone that the Letters practice fits one screen. UI logic is tested in jsdom, layout in headless Chrome.
 - GitHub Actions versions show Node deprecation warnings (cosmetic).
-- Practice grades only right or wrong. Finer grading (hard, easy) waits for the quiz engine.
+- Letters and Cards practice grade only right or wrong. The quiz grades finer (easy, good, hard) from silent answer speed.
+- The quiz's typing questions have not been tried with a real phone keyboard (autocorrect, layout shift). Speed thresholds in `quiz.SPEED` are guesses and may need tuning from real use.
