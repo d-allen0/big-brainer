@@ -16,6 +16,7 @@ const read = (f) => fs.readFileSync(path.join(WWW, f), "utf8");
 const srs = await import(path.join(WWW, "srs.js"));
 const A = await import(path.join(WWW, "alphabet.js"));
 const V = await import(path.join(WWW, "vocab.js"));
+const P = await import(path.join(WWW, "phrases.js"));
 const tts = await import(path.join(WWW, "tts.js"));
 const db = await import(path.join(WWW, "db.js"));
 
@@ -30,6 +31,8 @@ const letters = A.parseLetters(rawLetters);
 const byId = Object.fromEntries(letters.map((l) => [l.id, l]));
 const rawVocab = JSON.parse(read("vocab.json"));
 const words = V.parseVocab(rawVocab);
+const rawPhrases = JSON.parse(read("phrases.json"));
+const phrases = P.parsePhrases(rawPhrases);
 
 // ---------------------------------------------------------------- scheduling
 
@@ -439,6 +442,146 @@ describe("vocab: questions and feedback", () => {
 
 // -------------------------------------------------------------- speech wrapper
 
+describe("phrases: data", () => {
+  const FORBIDDEN = /\b(due|overdue|locked|unlock|unlocked|streak|daily|expires|deadline|behind|penalty|tomorrow|later|wait|missed)\b/i;
+  const good = () => ({ phrases: [{ id: "a", ar: "x", tr: "x", en: "one" }, { id: "b", ar: "y", tr: "y", en: "two" }] });
+
+  it("the shipped data is valid: 40 phrases in 4 full sets, marked unreviewed", () => {
+    assert.equal(phrases.length, 40);
+    assert.equal(P.setCount(phrases), 4);
+    for (let s = 1; s <= 4; s++) assert.equal(P.phrasesOfSet(phrases, s).length, 10);
+    assert.equal(rawPhrases.reviewed, false);
+    assert.match(rawPhrases.note, /unreviewed/i);
+  });
+
+  it("every phrase has Arabic with vowel marks, macron transliteration, a meaning, and no invisible characters", () => {
+    const harakat = /[\u064b-\u0652]/;
+    const trOk = /^[a-zA-Zāīūḥṣḍṭẓʿʾ' -]+$/;
+    for (const p of phrases) {
+      assert.ok(harakat.test(p.ar), `${p.id}: Arabic needs vowel marks`);
+      assert.ok(trOk.test(p.tr), `${p.id}: transliteration uses unexpected characters: ${p.tr}`);
+      assert.ok(!/[\u200b-\u200f\u202a-\u202e\u2066-\u2069\ufeff\u00a0]/.test(JSON.stringify(p)), `${p.id}: invisible character`);
+      assert.ok(!/[\u0660-\u0669\u06f0-\u06f9]/.test(p.ar), `${p.id}: numbers are spelled out in words`);
+    }
+  });
+
+  it("no phrase meaning or transliteration uses a forbidden pacing word (they appear on screen)", () => {
+    for (const p of phrases) assert.ok(!FORBIDDEN.test(`${p.en} ${p.tr}`), `${p.id}: ${p.en}`);
+  });
+
+  it("ids are lowercase and unique, so they are safe to use in card ids", () => {
+    assert.equal(new Set(phrases.map((p) => p.id)).size, 40);
+    assert.ok(phrases.every((p) => /^[a-z0-9_]+$/.test(p.id)));
+  });
+
+  it("replies point at real, different phrases", () => {
+    const withReply = phrases.filter((p) => p.reply);
+    assert.ok(withReply.length >= 3);
+    for (const p of withReply) assert.ok(P.replyTo(phrases, p) && P.replyTo(phrases, p).id !== p.id);
+    assert.equal(P.replyTo(phrases, phrases.find((p) => !p.reply)), null);
+  });
+
+  it("validation rejects bad data", () => {
+    assert.throws(() => P.parsePhrases(null), TypeError);
+    assert.throws(() => P.parsePhrases({ phrases: [] }), TypeError);
+    for (const key of ["id", "ar", "tr", "en"]) {
+      const d = good(); d.phrases[0][key] = "";
+      assert.throws(() => P.parsePhrases(d), TypeError, `empty ${key}`);
+    }
+    for (const [key, val] of [["id", "b"], ["ar", "y"], ["en", "two"]]) {
+      const d = good(); d.phrases[0][key] = val;
+      assert.throws(() => P.parsePhrases(d), /duplicate/, `duplicate ${key}`);
+    }
+    let d = good(); d.phrases[0].id = "Bad Id";
+    assert.throws(() => P.parsePhrases(d), /lowercase/);
+    d = good(); d.phrases[0].ar = "x" + ZWJ;
+    assert.throws(() => P.parsePhrases(d), /invisible/);
+    d = good(); d.phrases[0].reply = "nope";
+    assert.throws(() => P.parsePhrases(d), /reply/);
+    d = good(); d.phrases[0].reply = "a";
+    assert.throws(() => P.parsePhrases(d), /reply/, "a phrase cannot reply to itself");
+    d = good(); d.phrases[0].reply = "b";
+    assert.equal(P.parsePhrases(d).length, 2);
+  });
+
+  it("phrase ids never collide with word ids in card ids, and the id format is fixed", () => {
+    const cards = P.cardsForSet(phrases, 1, T0);
+    assert.equal(cards.length, 20);
+    assert.ok(cards.every((c) => /^phrase:[a-z0-9_]+:(ar2en|en2ar)$/.test(c.id) && c.deck === "phrase"));
+    assert.deepEqual(ids(P.cardsForPhrase(phrases[0], T0)), ["phrase:as_salamu_alaykum:ar2en", "phrase:as_salamu_alaykum:en2ar"]);
+    assert.throws(() => P.cardsForPhrase(phrases[0], T0, ["zz"]), RangeError);
+    const vocabIds = new Set(V.cardsForSet(words, 1, T0).map((c) => c.id));
+    assert.ok(cards.every((c) => !vocabIds.has(c.id)));
+  });
+
+  it("loadPhrases reads and validates; a failed load says so", async () => {
+    const ok = await P.loadPhrases("x", async () => ({ ok: true, json: async () => rawPhrases }));
+    assert.equal(ok.length, 40);
+    await assert.rejects(P.loadPhrases("x", async () => ({ ok: false, status: 404 })), /404/);
+  });
+});
+
+describe("phrases: sets, path, questions", () => {
+  it("suggests set 1 on a fresh install, moves on at 80% learned, and every set stays open", () => {
+    assert.equal(P.suggestedSet([], phrases), 1);
+    const set1 = P.cardsForSet(phrases, 1, 0).map((c) => ({ ...c, reps: 2 }));
+    assert.equal(P.suggestedSet(set1, phrases), 2);
+    assert.equal(P.suggestedSet(set1.slice(0, 15), phrases), 1);
+    assert.equal(P.suggestedSet(set1.slice(0, 16), phrases), 2);
+    const all = Array.from({ length: 4 }, (_, i) => P.cardsForSet(phrases, i + 1, 0)).flat().map((c) => ({ ...c, reps: 3 }));
+    assert.equal(P.suggestedSet(all, phrases), 4, "the last set once everything is learned, never nothing");
+    assert.throws(() => P.suggestedSet([], phrases, { threshold: 0 }), RangeError);
+    assert.equal(P.farAhead(3, 1), true);
+    assert.equal(P.phrasesOfSet(phrases, 0).length, 0);
+    assert.equal(P.phrasesOfSet(phrases, 5).length, 0);
+  });
+
+  it("set progress counts only this deck's cards", () => {
+    const wordCards = V.cardsForSet(words, 1, 0).map((c) => ({ ...c, reps: 5 }));
+    assert.equal(P.suggestedSet(wordCards, phrases), 1);
+    assert.equal(P.setMastery([], phrases).length, 4);
+  });
+
+  it("builds four distinct choices from the same set in both directions", () => {
+    const rng = A.seededRng(7);
+    for (const phrase of phrases) {
+      for (const kind of P.KINDS) {
+        const q = P.buildQuestion({ phrase, kind, phrases, rng });
+        assert.equal(q.choices.length, 4);
+        assert.equal(new Set(q.choices.map((c) => c.text)).size, 4, "no two identical choices");
+        assert.equal(q.choices.filter((c) => c.id === phrase.id).length, 1);
+        assert.equal(q.answerId, phrase.id);
+        assert.equal(q.promptIsArabic, kind === "ar2en");
+        assert.equal(q.choicesAreArabic, kind === "en2ar");
+        const set = P.setOf(phrases, phrase);
+        assert.ok(q.choices.every((c) => P.setOf(phrases, phrases.find((p) => p.id === c.id)) === set), "plausible wrong answers come from the same set");
+      }
+    }
+  });
+
+  it("with only a few phrases it uses what exists; bad input throws", () => {
+    const three = phrases.slice(0, 3);
+    assert.equal(P.buildQuestion({ phrase: three[0], kind: "ar2en", phrases: three }).choices.length, 3);
+    const outer = P.buildQuestion({ phrase: phrases[0], kind: "ar2en", phrases: [...phrases.slice(0, 2), ...phrases.slice(10, 14)], rng: A.seededRng(1) });
+    assert.equal(outer.choices.length, 4, "falls back to other sets");
+    assert.throws(() => P.buildQuestion({ phrase: phrases[0], kind: "zz", phrases }), RangeError);
+    assert.throws(() => P.buildQuestion({ phrase: phrases[0], kind: "ar2en", phrases, choiceCount: 1 }), RangeError);
+    assert.throws(() => P.buildQuestion({ phrase: { id: "nope" }, kind: "ar2en", phrases }), RangeError);
+    assert.throws(() => P.buildQuestion({ phrase: phrases[0], kind: "ar2en", phrases: [phrases[0]] }), RangeError);
+  });
+
+  it("the mistake note shows the right answer and, if known, what was picked; no alarm wording", () => {
+    const [a, b] = phrases;
+    assert.deepEqual(P.mistakeNote({ phrase: a }), [`${a.ar} (${a.tr}) means "${a.en}".`]);
+    const lines = P.mistakeNote({ phrase: a, chosen: b });
+    assert.equal(lines.length, 2);
+    assert.ok(lines[1].includes(b.en));
+    assert.equal(P.mistakeNote({ phrase: a, chosen: a }).length, 1);
+    assert.throws(() => P.mistakeNote({}), TypeError);
+    assert.ok(!/wrong|incorrect|fail|error/i.test(lines.join(" ")));
+  });
+});
+
 describe("tts", () => {
   const rejectsCode = (p, code) =>
     assert.rejects(p, (e) => e instanceof tts.TTSError && e.code === code, `expected ${code}`);
@@ -618,7 +761,7 @@ describe("source hygiene", () => {
 
   it("no source file builds a due count or time-gate", () => {
     const forbidden = /\b(streak|overdue|come back (later|tomorrow)|daily goal|unlock(ed)?)\b/i;
-    for (const f of ["app.js", "letters-screen.js", "vocab-screen.js", "alphabet.js", "vocab.js", "srs.js"]) {
+    for (const f of ["app.js", "letters-screen.js", "vocab-screen.js", "alphabet.js", "vocab.js", "phrases.js", "srs.js"]) {
       const body = read(f).replace(/\/\/.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "");
       assert.ok(!forbidden.test(body), `${f} uses a forbidden pacing word in code or UI text`);
     }

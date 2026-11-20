@@ -1,0 +1,250 @@
+{
+ "note": "Teaching order in sets of 10: greetings, politeness, everyday needs, questions and numbers. Written by Claude; unreviewed by a fluent speaker. Phrases addressed to one person use the masculine form.",
+ "reviewed": false,
+ "phrases": [
+  {
+   "id": "as_salamu_alaykum",
+   "ar": "السَّلَامُ عَلَيْكُمْ",
+   "tr": "as-salāmu ʿalaykum",
+   "en": "peace be upon you (hello)",
+   "reply": "wa_alaykum"
+  },
+  {
+   "id": "wa_alaykum",
+   "ar": "وَعَلَيْكُمُ السَّلَامُ",
+   "tr": "wa ʿalaykumu s-salām",
+   "en": "and peace be upon you (reply)"
+  },
+  {
+   "id": "marhaba",
+   "ar": "مَرْحَبًا",
+   "tr": "marḥaban",
+   "en": "hello"
+  },
+  {
+   "id": "ahlan",
+   "ar": "أَهْلًا وَسَهْلًا",
+   "tr": "ahlan wa sahlan",
+   "en": "welcome"
+  },
+  {
+   "id": "sabah_khayr",
+   "ar": "صَبَاحُ الْخَيْرِ",
+   "tr": "ṣabāḥu l-khayr",
+   "en": "good morning",
+   "reply": "sabah_nur"
+  },
+  {
+   "id": "sabah_nur",
+   "ar": "صَبَاحُ النُّورِ",
+   "tr": "ṣabāḥu n-nūr",
+   "en": "good morning (reply)"
+  },
+  {
+   "id": "masa_khayr",
+   "ar": "مَسَاءُ الْخَيْرِ",
+   "tr": "masāʾu l-khayr",
+   "en": "good evening"
+  },
+  {
+   "id": "tusbih",
+   "ar": "تُصْبِحُ عَلَى خَيْرٍ",
+   "tr": "tuṣbiḥu ʿalā khayr",
+   "en": "good night"
+  },
+  {
+   "id": "ma_salama",
+   "ar": "مَعَ السَّلَامَةِ",
+   "tr": "maʿa s-salāmah",
+   "en": "goodbye"
+  },
+  {
+   "id": "ila_liqa",
+   "ar": "إِلَى اللِّقَاءِ",
+   "tr": "ilā l-liqāʾ",
+   "en": "until we meet again"
+  },
+  {
+   "id": "min_fadlik",
+   "ar": "مِنْ فَضْلِكَ",
+   "tr": "min faḍlika",
+   "en": "please"
+  },
+  {
+   "id": "shukran",
+   "ar": "شُكْرًا",
+   "tr": "shukran",
+   "en": "thank you"
+  },
+  {
+   "id": "shukran_jazilan",
+   "ar": "شُكْرًا جَزِيلًا",
+   "tr": "shukran jazīlan",
+   "en": "thank you very much"
+  },
+  {
+   "id": "afwan",
+   "ar": "عَفْوًا",
+   "tr": "ʿafwan",
+   "en": "you're welcome"
+  },
+  {
+   "id": "ana_asif",
+   "ar": "أَنَا آسِفٌ",
+   "tr": "ana āsif",
+   "en": "I am sorry"
+  },
+  {
+   "id": "ismah_li",
+   "ar": "اِسْمَحْ لِي",
+   "tr": "ismaḥ lī",
+   "en": "excuse me"
+  },
+  {
+   "id": "tafaddal",
+   "ar": "تَفَضَّلْ",
+   "tr": "tafaḍḍal",
+   "en": "here you are, go ahead"
+  },
+  {
+   "id": "kayfa_haluk",
+   "ar": "كَيْفَ حَالُكَ",
+   "tr": "kayfa ḥāluka",
+   "en": "how are you",
+   "reply": "ana_bikhayr"
+  },
+  {
+   "id": "ana_bikhayr",
+   "ar": "أَنَا بِخَيْرٍ",
+   "tr": "ana bi-khayr",
+   "en": "I am well"
+  },
+  {
+   "id": "alhamdulillah",
+   "ar": "الْحَمْدُ لِلَّهِ",
+   "tr": "al-ḥamdu lillāh",
+   "en": "thank God"
+  },
+  {
+   "id": "uridu_maa",
+   "ar": "أُرِيدُ مَاءً",
+   "tr": "urīdu māʾan",
+   "en": "I want water"
+  },
+  {
+   "id": "ayna_hammam",
+   "ar": "أَيْنَ الْحَمَّامُ",
+   "tr": "ayna l-ḥammām",
+   "en": "where is the bathroom"
+  },
+  {
+   "id": "bikam_hadha",
+   "ar": "بِكَمْ هَذَا",
+   "tr": "bi-kam hādhā",
+   "en": "how much is this"
+  },
+  {
+   "id": "la_afham",
+   "ar": "لَا أَفْهَمُ",
+   "tr": "lā afham",
+   "en": "I do not understand"
+  },
+  {
+   "id": "afham",
+   "ar": "أَنَا أَفْهَمُ",
+   "tr": "ana afham",
+   "en": "I understand"
+  },
+  {
+   "id": "takallam_bibut",
+   "ar": "تَكَلَّمْ بِبُطْءٍ",
+   "tr": "takallam bi-buṭʾin",
+   "en": "speak slowly"
+  },
+  {
+   "id": "aid_min_fadlik",
+   "ar": "أَعِدْ مِنْ فَضْلِكَ",
+   "tr": "aʿid min faḍlika",
+   "en": "please repeat"
+  },
+  {
+   "id": "la_atakallam",
+   "ar": "لَا أَتَكَلَّمُ الْعَرَبِيَّةَ جَيِّدًا",
+   "tr": "lā atakallamu l-ʿarabiyyata jayyidan",
+   "en": "I do not speak Arabic well"
+  },
+  {
+   "id": "ma_ismuk",
+   "ar": "مَا اسْمُكَ",
+   "tr": "mā ismuka",
+   "en": "what is your name",
+   "reply": "ismi_ahmad"
+  },
+  {
+   "id": "ismi_ahmad",
+   "ar": "اِسْمِي أَحْمَدُ",
+   "tr": "ismī aḥmad",
+   "en": "my name is Ahmad"
+  },
+  {
+   "id": "ma_hadha",
+   "ar": "مَا هَذَا",
+   "tr": "mā hādhā",
+   "en": "what is this"
+  },
+  {
+   "id": "man_hadha",
+   "ar": "مَنْ هَذَا",
+   "tr": "man hādhā",
+   "en": "who is this"
+  },
+  {
+   "id": "limadha",
+   "ar": "لِمَاذَا",
+   "tr": "limādhā",
+   "en": "why"
+  },
+  {
+   "id": "mata_tasil",
+   "ar": "مَتَى تَصِلُ",
+   "tr": "matā taṣilu",
+   "en": "when do you arrive"
+  },
+  {
+   "id": "hal_tatakallam_ing",
+   "ar": "هَلْ تَتَكَلَّمُ الْإِنْجِلِيزِيَّةَ",
+   "tr": "hal tatakallamu l-injlīziyyah",
+   "en": "do you speak English"
+  },
+  {
+   "id": "one_two_three",
+   "ar": "وَاحِدٌ اثْنَانِ ثَلَاثَةٌ",
+   "tr": "wāḥid ithnān thalāthah",
+   "en": "one, two, three"
+  },
+  {
+   "id": "four_five_six",
+   "ar": "أَرْبَعَةٌ خَمْسَةٌ سِتَّةٌ",
+   "tr": "arbaʿah khamsah sittah",
+   "en": "four, five, six"
+  },
+  {
+   "id": "seven_eight_nine",
+   "ar": "سَبْعَةٌ ثَمَانِيَةٌ تِسْعَةٌ",
+   "tr": "sabʿah thamāniyah tisʿah",
+   "en": "seven, eight, nine"
+  },
+  {
+   "id": "ten",
+   "ar": "عَشَرَةٌ",
+   "tr": "ʿasharah",
+   "en": "ten"
+  },
+  {
+   "id": "kam_saa",
+   "ar": "كَمِ السَّاعَةُ",
+   "tr": "kami s-sāʿah",
+   "en": "what time is it"
+  }
+ ]
+}
