@@ -58,7 +58,7 @@ async function homeScreen() {
 
 // route name -> { title, render }
 export const screens = {
-  home: { title: "Arabic Learner", render: homeScreen },
+  home: { title: "Big Brainer", render: homeScreen },
   alphabet: { title: "Letters", render: comingSoon("Alphabet") },
   cards: { title: "Flashcards", render: comingSoon("Flashcards") },
   quran: { title: "Quran reading", render: comingSoon("Quran reading") },
