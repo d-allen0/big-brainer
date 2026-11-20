@@ -1,0 +1,16 @@
+{
+  "name": "arabic-learner",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Offline Modern Standard Arabic learning app for Android, built with Capacitor",
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.6.2",
+    "@capacitor/core": "^8.6.2"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.6.2"
+  }
+}
