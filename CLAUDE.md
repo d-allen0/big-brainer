@@ -112,6 +112,7 @@ Add any new violation here the moment it is found, then fix it.
 
 Also:
 - One commit per task, with a clear message. Push to `main` and confirm the Actions build is green and signed.
+- **Every time an update is pushed, give the owner the direct download link** for that build's APK artifact (once the build is green and signed), so they never have to search for it. Also say which run number it is.
 - Run the design checklist in 1.2 as part of describing any approach.
 - Run a syntax check and real tests before committing. Report plainly what was and was not verified, including anything that could not be tested without a device.
 - Keep replies short and phone-friendly. The owner mostly reads on a phone.
