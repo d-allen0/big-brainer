@@ -127,13 +127,14 @@ Also:
 - **Never paste invisible or look-alike characters literally** (zero-width joiners, directional marks, special spaces). Write them with explicit code such as `String.fromCharCode(0x200d)` and verify the file bytes. This slipped through once and made a source file fragile.
 - **Check layout in a real browser, not only jsdom.** jsdom has no layout. Drive the real `www/` in headless Chrome (playwright-core with `/usr/bin/google-chrome`) at 360x640, 393x852 and 412x915, with and without the voice warning, and check that the answers, feedback and Next are visible and nothing scrolls. Any change to practice screens or `styles.css` needs this check.
 - **Ask before changing how the app is tapped or laid out** (button placement, grid vs column, size). The owner uses it one-handed on a phone. Describe the change and wait.
+- **Tests live in `test/`** (own `package.json`, so the APK build never installs them). Run: `cd test && npm install && npm test` (about 20 seconds). `logic.test.mjs` covers scheduling, letters, vocab, speech and storage; `ui.test.mjs` drives the real app in jsdom; `layout.test.mjs` uses real Chrome (set `CHROME=/path/to/chrome`; skipped if not found). All must pass before every commit. Prove a new check works by breaking the app on purpose and watching it fail. Keep invisible characters out of tests too (use `ZWJ`).
 - **Test the UI for real:** run the actual `www/` app in jsdom with `fake-indexeddb` and drive it like a learner. Include the pacing checks: no forbidden words in any screen, practice never empty, nothing blocked, no inline `style` attributes (CSP), every CSS class used is defined.
 
 ---
 
 ## 5. Roadmap and status
 
-Done: app shell, IndexedDB storage, SM-2 engine, text-to-speech wrapper, alphabet data and logic, pacing foundation, Letters screen (grid, lessons, practice), signing and CI, compact one-screen practice layout, vocab flashcards (100 words, 10 sets, both directions, multiple choice).
+Done: test suite in `test/`, app shell, IndexedDB storage, SM-2 engine, text-to-speech wrapper, alphabet data and logic, pacing foundation, Letters screen (grid, lessons, practice), signing and CI, compact one-screen practice layout, vocab flashcards (100 words, 10 sets, both directions, multiple choice).
 
 Next, in order:
 1. Grow vocab: extend the list (target about 200) using an open frequency list to rank words (Leipzig Corpora, CC BY 4.0, is the candidate; Kelly is non-commercial, OpenSubtitles is share-alike, CAMeL's licence is unconfirmed; credit whatever is used), then add a Quran-focused word track. Quranic text and word lists for it must come from a verified source.
@@ -145,8 +146,5 @@ Next, in order:
 - Example words and hints in `letters.json` are unreviewed by a native speaker.
 - All 100 words in `vocab.json` (Arabic forms, transliteration, meanings, order) are unreviewed by a fluent speaker, and the order is not a measured frequency ranking.
 - Text-to-speech output and the Arabic fonts for the word lists have not been checked on a real device. The owner has confirmed on their phone that the Letters practice fits one screen. UI logic is tested in jsdom, layout in headless Chrome.
-- Tests exist only as throwaway scripts outside the repo. Add a `test/` folder using `node:test` (the pacing, alphabet, vocab, text-to-speech, jsdom UI and Chrome layout checks are good starting points).
-- No `.gitignore` or `package-lock.json` yet.
 - GitHub Actions versions show Node deprecation warnings (cosmetic).
 - Practice grades only right or wrong. Finer grading (hard, easy) waits for the quiz engine.
-- `db.getDueCards` is unused now. Remove it if it stays unused, so nobody builds a "due count" on it.

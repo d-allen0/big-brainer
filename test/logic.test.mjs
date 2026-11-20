@@ -583,6 +583,10 @@ describe("db: the learner's progress is never overwritten", () => {
     assert.deepEqual(await db.getMeta("k"), [1, 2]);
   });
 
+  it("there is no due-count query to build a countdown on", () => {
+    assert.equal(db.getDueCards, undefined);
+  });
+
   it("the database name is never changed (it would hide all progress)", () => {
     assert.match(read("db.js"), /const DB_NAME = "arabic-learner";/);
   });

@@ -133,26 +133,6 @@ export async function addCardsIfMissing(cards) {
   });
 }
 
-/** Cards with due <= now, most overdue first. Optional deck filter and limit. */
-export async function getDueCards(now, { deck = null, limit = Infinity } = {}) {
-  const db = await openDB();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction("cards", "readonly");
-    const index = tx.objectStore("cards").index("due");
-    const out = [];
-    const req = index.openCursor(IDBKeyRange.upperBound(now));
-    req.onsuccess = () => {
-      const cursor = req.result;
-      if (!cursor || out.length >= limit) return;
-      if (deck === null || cursor.value.deck === deck) out.push(cursor.value);
-      cursor.continue();
-    };
-    tx.oncomplete = () => resolve(out);
-    tx.onerror = () => reject(tx.error);
-    tx.onabort = () => reject(tx.error ?? new Error("Transaction aborted"));
-  });
-}
-
 // ---- meta (settings, progress flags) ----
 
 export async function getMeta(key, fallback = null) {
