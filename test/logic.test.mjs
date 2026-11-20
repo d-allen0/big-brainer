@@ -17,6 +17,7 @@ const srs = await import(path.join(WWW, "srs.js"));
 const A = await import(path.join(WWW, "alphabet.js"));
 const V = await import(path.join(WWW, "vocab.js"));
 const P = await import(path.join(WWW, "phrases.js"));
+const D = await import(path.join(WWW, "dialogues.js"));
 const tts = await import(path.join(WWW, "tts.js"));
 const db = await import(path.join(WWW, "db.js"));
 
@@ -962,6 +963,78 @@ describe("dialogues: shipped data", () => {
     for (const d of raw.dialogues) {
       const switches = d.lines.filter((l, i) => i > 0 && l.who !== d.lines[i - 1].who).length;
       assert.ok(switches >= d.lines.length - 2, `${d.id} switches speaker ${switches} times`);
+    }
+  });
+});
+
+describe("dialogues: logic", () => {
+  const raw = JSON.parse(read("dialogues.json"));
+  const list = D.parseDialogues(raw);
+  const good = () => ({ dialogues: [{ id: "x", title: "X", speakers: { a: "Ann", b: "Bo" }, lines: [{ who: "a", ar: "أ", tr: "a", en: "one" }, { who: "b", ar: "ب", tr: "b", en: "two" }] }] });
+
+  it("accepts the shipped data and minimal good data", () => {
+    assert.equal(list.length, 6);
+    assert.equal(D.parseDialogues(good()).length, 1);
+  });
+
+  it("rejects bad data with a clear error", () => {
+    const bad = (mut, re) => { const g = good(); mut(g.dialogues[0], g); assert.throws(() => D.parseDialogues(g), re); };
+    assert.throws(() => D.parseDialogues(null), /non-empty/);
+    assert.throws(() => D.parseDialogues({ dialogues: [] }), /non-empty/);
+    bad((d) => { d.id = "Bad Id"; }, /id must be/);
+    bad((d) => { d.title = ""; }, /title/);
+    bad((d) => { d.speakers.b = "Ann"; }, /two different names/);
+    bad((d) => { delete d.speakers.b; }, /speakers/);
+    bad((d) => { d.lines = [d.lines[0]]; }, /at least 2 lines/);
+    bad((d) => { d.lines[1].who = "a"; }, /both speakers must talk/);
+    bad((d) => { d.lines[0].who = "c"; }, /who must be/);
+    bad((d) => { d.lines[0].en = ""; }, /en must be/);
+    bad((d) => { d.lines[0].ar = "أ" + String.fromCharCode(0x200f); }, /invisible/);
+    bad((d, g) => { g.dialogues.push({ ...structuredClone(d) }); }, /duplicate/);
+  });
+
+  it("findDialogue returns the dialogue or null", () => {
+    assert.equal(D.findDialogue(list, "greeting").id, "greeting");
+    assert.equal(D.findDialogue(list, "nope"), null);
+    assert.equal(D.findDialogue(list, undefined), null);
+  });
+
+  it("the suggestion is the first unopened dialogue and never runs out", () => {
+    assert.equal(D.suggestedDialogue(list, []).id, list[0].id);
+    assert.equal(D.suggestedDialogue(list, [list[0].id]).id, list[1].id);
+    assert.equal(D.suggestedDialogue(list, [list[1].id]).id, list[0].id, "opening a later one does not skip the first");
+    assert.equal(D.suggestedDialogue(list, list.map((d) => d.id)).id, list[0].id, "all opened: starts over, never empty");
+    assert.equal(D.suggestedDialogue(list, "junk").id, list[0].id);
+    assert.equal(D.suggestedDialogue(list, undefined).id, list[0].id);
+    assert.equal(D.suggestedDialogue([], []), null);
+  });
+
+  it("markOpened adds once, ignores unknown ids and bad stored values", () => {
+    assert.deepEqual(D.markOpened(list, [], "greeting"), ["greeting"]);
+    assert.deepEqual(D.markOpened(list, ["greeting"], "greeting"), ["greeting"]);
+    assert.deepEqual(D.markOpened(list, ["greeting"], "nope"), ["greeting"]);
+    assert.deepEqual(D.markOpened(list, ["gone", "shop"], "cafe"), ["shop", "cafe"]);
+    assert.deepEqual(D.markOpened(list, "junk", "shop"), ["shop"]);
+    assert.deepEqual(D.markOpened(list, null, "shop"), ["shop"]);
+  });
+
+  it("hear-all says the Arabic of every line in order; speaker names come from the dialogue", () => {
+    const d = D.findDialogue(list, "shop");
+    assert.deepEqual(D.hearAllTexts(d), d.lines.map((l) => l.ar));
+    assert.equal(D.speakerName(d, d.lines[0]), "Ahmad");
+    assert.equal(D.speakerName(d, d.lines[1]), "Layla");
+  });
+
+  it("loadDialogues reads and validates through the given fetch, and reports a failed load", async () => {
+    assert.equal((await D.loadDialogues("x", async () => ({ ok: true, json: async () => raw }))).length, 6);
+    await assert.rejects(D.loadDialogues("x", async () => ({ ok: false, status: 404 })), /Could not load dialogues \(404\)/);
+    await assert.rejects(D.loadDialogues("x", async () => ({ ok: true, json: async () => ({ dialogues: [] }) })), /non-empty/);
+  });
+
+  it("stays pure: no DOM, storage or clock", () => {
+    const src = read("dialogues.js");
+    for (const banned of ["document", "window", "indexedDB", "localStorage", "Date.now", "Math.random", "innerHTML"]) {
+      assert.ok(!src.includes(banned), `dialogues.js must not use ${banned}`);
     }
   });
 });
