@@ -2,7 +2,7 @@
 
 (Internal identifiers such as the app id, the database name and some file names still say "arabic-learner" on purpose. See 3.1.)
 
-A self-hosted, fully offline Android app for learning Modern Standard Arabic (MSA) as a total beginner, with the long-term goal of reading and understanding the Quran. Built with Capacitor and plain JavaScript. All data stays on the phone.
+A self-hosted, fully offline Android app for learning Modern Standard Arabic (MSA) as a total beginner, with the goal of holding simple conversations and reading with understanding. That includes, in time, being able to read the Quran. Built with Capacitor and plain JavaScript. All data stays on the phone.
 
 Read this file before designing or building anything. Section 1 is the most important part of the project.
 
@@ -55,13 +55,13 @@ Add any new violation here the moment it is found, then fix it.
 
 ## 2. Learning content and method
 
-- **Language:** Modern Standard Arabic. **Goal:** read and understand the Quran. **Starting level:** total beginner (alphabet first).
-- **Methods:** spaced repetition (SM-2 variant), active recall, chunking (letters in small shape-based groups), interleaving, frequency-ordered vocabulary with a Quran-focused track, short grammar lessons ending in a quiz.
-- **Audio:** on-device text-to-speech only. Arabic voice quality varies by phone and handling of fully vowelled Quranic text can be uneven. Always handle the "no Arabic voice installed" case clearly.
+- **Language:** Modern Standard Arabic. **Goal:** conversation and reading comprehension (which ultimately includes reading the Quran). **Starting level:** total beginner (alphabet first).
+- **Methods:** spaced repetition (SM-2 variant), active recall, chunking (letters in small shape-based groups), interleaving, frequency-ordered vocabulary, common phrases and short sentences, graded reading and dialogues, short grammar lessons ending in a quiz.
+- **Audio:** on-device text-to-speech only. Arabic voice quality varies by phone and handling of fully vowelled text can be uneven. Always handle the "no Arabic voice installed" case clearly.
 - **Arabic text:** show beginner material with vowel marks (tashkeel). Render Arabic with the `.ar` class (RTL, a font stack with good tashkeel support). Joined letter forms use a zero-width joiner (U+200D, defined in `alphabet.js` as `String.fromCharCode(0x200d)`), never presentation-form code points.
 - **Transliteration:** macron vowels (ā ī ū) and ḥ ṣ ḍ ṭ ẓ ʿ ʾ. The standard letter names must stay unique (ح is ḥāʾ, ه is hāʾ).
 - **Accuracy rules:**
-  - **Quranic text must come from a verified source. Never type or recall it from memory.**
+  - **Quranic text (if it is ever added as reading material) must come from a verified source. Never type or recall it from memory.**
   - Content written by Claude (example words, meanings, hints) is unreviewed until a fluent speaker checks it. Mark such content as unreviewed in the roadmap.
   - Verify letter data against the Unicode character database (the letter `id` is its Unicode name suffix).
 
@@ -139,9 +139,12 @@ Also:
 
 Done: test suite in `test/`, app shell, IndexedDB storage, SM-2 engine, text-to-speech wrapper, alphabet data and logic, pacing foundation, Letters screen (grid, lessons, practice), signing and CI, compact one-screen practice layout, vocab flashcards (100 words, 10 sets, both directions, multiple choice), quiz engine (mixed letters and words; choose, listen-and-pick, type-the-answer; silent speed grading).
 
-Next, in order:
-1. Grow vocab: extend the list (target about 200) using an open frequency list to rank words (Leipzig Corpora, CC BY 4.0, is the candidate; Kelly is non-commercial, OpenSubtitles is share-alike, CAMeL's licence is unconfirmed; credit whatever is used), then add a Quran-focused word track. Quranic text and word lists for it must come from a verified source.
-2. Grammar lessons, Quran reading track, handwriting canvas.
+Next, in order (agreed with the owner):
+1. Phrases and short sentences as new sets in Cards (greetings, politeness, everyday needs, numbers). Choice and listen questions only; typed answers are too strict for phrases. They come after the 100 words in the suggested path. All written by Claude, so mark as unreviewed.
+2. Dialogues (two-person conversations) in the Read tab: each line vowelled, tappable for meaning, with a speaker button.
+3. Graded short texts in the Read tab (phrases, sentences, tiny passages) with tap-for-meaning and comprehension questions; vowel marks can be hidden later. The Read tab is currently a "Coming soon" placeholder.
+4. Grow vocab (target about 200) using an open frequency list (Leipzig Corpora, CC BY 4.0, is the candidate; Kelly is non-commercial, OpenSubtitles is share-alike, CAMeL's licence is unconfirmed; credit whatever is used). Parked: needs a list the sandbox can reach.
+5. Grammar lessons, handwriting canvas, and Quran passages as one more reading source (verified text only).
 
 ### Known gaps
 
