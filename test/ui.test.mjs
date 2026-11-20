@@ -44,6 +44,19 @@ describe("Home", () => {
   it("an unknown route falls back to Home", async () => {
     await go("#/bogus", () => text().includes("Ready to practice"));
   });
+
+  it("the old Quran route falls back to Home, and no screen mentions the Quran", async () => {
+    await go("#/quran", () => text().includes("Ready to practice"));
+    assert.ok(!/quran/i.test(document.body.textContent), "Home never mentions the Quran");
+  });
+
+  it("the Read tab exists and is highlighted on its own route", async () => {
+    assert.deepEqual($$(".tabbar a").map((a) => a.textContent), ["Home", "Letters", "Cards", "Read"]);
+    await go("#/read", () => $("#screen-title").textContent === "Read");
+    assert.equal($("[aria-current=page]").dataset.route, "read");
+    audit("read");
+    assert.ok(!/quran/i.test(document.body.textContent));
+  });
 });
 
 // ------------------------------------------------------------------- Letters

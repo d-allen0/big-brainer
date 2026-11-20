@@ -1,5 +1,5 @@
 // App shell: tiny hash router plus screen registry.
-// Feature modules (alphabet, flashcards, quran) register screens here.
+// Feature modules (alphabet, flashcards, quiz, read) register screens here.
 // Screens receive { parts, setTitle }: the hash path split on "/", and a title setter.
 
 import { createLettersScreen } from "./letters-screen.js";
@@ -38,7 +38,7 @@ function homeScreen() {
   return h("div", {},
     h("div", { class: "card" },
       h("h2", {}, "Welcome"),
-      h("p", {}, "Learn Modern Standard Arabic, with a path to reading the Quran."),
+      h("p", {}, "Learn to read and understand Modern Standard Arabic."),
       h("p", { class: "ar", lang: "ar" }, "مَرْحَبًا")),
     h("div", { class: "card" },
       h("h2", {}, "Ready to practice"),
@@ -63,7 +63,7 @@ export const screens = {
   alphabet: { title: "Letters", render: lettersScreen },
   cards: { title: "Flashcards", render: vocabScreen },
   quiz: { title: "Quiz", render: quizScreen },
-  quran: { title: "Quran reading", render: comingSoon("Quran reading") },
+  read: { title: "Read", render: comingSoon("Reading") },
 };
 
 let renderToken = 0;
