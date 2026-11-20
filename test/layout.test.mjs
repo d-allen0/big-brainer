@@ -270,6 +270,62 @@ for (const { w, h } of SIZES) {
       });
     });
 
+    describe(`Quiz with phrases at ${tag}`, { skip }, () => {
+      for (const font of [null, "FreeMono"]) it(`phrase questions in both directions fit, with the longest answers${font ? ` (taller font: ${font})` : ""}; Next is always visible`, async () => {
+        const ctx = await browser.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: 2, hasTouch: true, isMobile: true, bypassCSP: !!font });
+        const page = await ctx.newPage();
+        if (withVoice) await page.addInitScript(FAKE_TTS);
+        const errors = [];
+        page.on("pageerror", (e) => errors.push(e.message));
+        try {
+          await page.addInitScript(() => { let s = 777; Math.random = () => ((s = (s * 1664525 + 1013904223) % 4294967296) / 4294967296); });
+          await page.goto(`${base}#/quiz`);
+          await page.waitForSelector(".choice, .type-input, .speak-big");
+          if (font) await page.addStyleTag({ content: `body, a, button, .ar { font-family: "${font}" !important; }` });
+          await page.waitForTimeout(150);
+          const dirs = new Set();
+          let phraseQs = 0;
+          for (let i = 0; i < 400 && phraseQs < 8; i++) {
+            if (await page.$("button:text-is('Keep going')")) {
+              await page.click("button:text-is('Keep going')");
+              await page.waitForSelector(".choice, .type-input, .speak-big");
+              continue;
+            }
+            const ins = await page.evaluate(() => document.querySelector(".card.center p.text")?.textContent ?? "");
+            if (/phrase/.test(ins) && !(await page.$(".type-input"))) {
+              phraseQs++;
+              dirs.add(ins);
+              let m = await measure(page);
+              assert.equal(m.choices.length, 4);
+              assert.ok(m.choices.every((c) => c.bottom <= m.tabTop + 0.5), "all 4 phrase answers above the tab bar");
+              assert.ok(await page.$(".choices.long"), "phrase questions use the compact long-text layout");
+              if (withVoice) assert.ok(m.docH <= m.vh + 1, `question needs no scrolling (doc ${m.docH} vs ${m.vh})`);
+              const texts = await page.$$eval(".choice", (els) => els.map((e) => e.textContent.length));
+              await (await page.$$(".choice"))[texts.indexOf(Math.max(...texts))].click(); // the longest answer: the longest feedback
+              await page.waitForTimeout(60);
+              m = await measure(page);
+              assert.ok(inView(m, m.next), "Next is visible after answering");
+              if (withVoice) assert.ok(m.docH <= m.vh + 1, `no scrolling after answering (doc ${m.docH} vs ${m.vh})`);
+              assert.ok(m.docW <= m.vw, "no horizontal overflow");
+            } else if (await page.$(".type-input")) {
+              await page.fill(".type-input", "zzzzzz");
+              await page.click("button:text-is('Check')");
+            } else {
+              await (await page.$$(".choice"))[0].click();
+            }
+            await page.waitForTimeout(30);
+            await page.locator("button:text-is('Next'), button:text-is('Finish round')").first().click();
+            await page.waitForTimeout(30);
+          }
+          assert.ok(phraseQs >= 8, `saw phrase questions (${phraseQs})`);
+          assert.ok(dirs.size >= 2, `saw both directions (${[...dirs]})`);
+          assert.deepEqual(errors, []);
+        } finally {
+          await ctx.close();
+        }
+      });
+    });
+
     describe(`Phrases at ${tag}`, { skip }, () => {
       it("the toggle and phrase overview fit sideways, with the toggle visible at the top", async () => {
         const { ctx, page, errors } = await newPage(w, h, withVoice);
@@ -435,7 +491,7 @@ for (const { w, h } of SIZES) {
               };
             });
             assert.ok(m.docW <= m.vw, `no horizontal overflow (${m.docW} vs ${m.vw})`);
-            assert.equal(m.pairs.length, 2);
+            assert.equal(m.pairs.length, 3);
             for (const [a, b] of m.pairs) {
               assert.equal(Math.round(a.top), Math.round(b.top), "Practice and Browse are on the same row");
               assert.ok(a.right <= b.left, "Practice is left of Browse");
