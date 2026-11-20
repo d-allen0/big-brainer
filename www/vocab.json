@@ -1,0 +1,706 @@
+{
+ "note": "Teaching order, roughly common-first. NOT a measured frequency list. Written by Claude; unreviewed by a fluent speaker.",
+ "reviewed": false,
+ "words": [
+  {
+   "id": "fi",
+   "ar": "فِي",
+   "tr": "fī",
+   "en": "in",
+   "pos": "prep"
+  },
+  {
+   "id": "min",
+   "ar": "مِنْ",
+   "tr": "min",
+   "en": "from",
+   "pos": "prep"
+  },
+  {
+   "id": "ala",
+   "ar": "عَلَى",
+   "tr": "ʿalā",
+   "en": "on",
+   "pos": "prep"
+  },
+  {
+   "id": "ila",
+   "ar": "إِلَى",
+   "tr": "ilā",
+   "en": "to",
+   "pos": "prep"
+  },
+  {
+   "id": "ana",
+   "ar": "أَنَا",
+   "tr": "anā",
+   "en": "I",
+   "pos": "pron"
+  },
+  {
+   "id": "huwa",
+   "ar": "هُوَ",
+   "tr": "huwa",
+   "en": "he",
+   "pos": "pron"
+  },
+  {
+   "id": "hiya",
+   "ar": "هِيَ",
+   "tr": "hiya",
+   "en": "she",
+   "pos": "pron"
+  },
+  {
+   "id": "hadha",
+   "ar": "هَذَا",
+   "tr": "hādhā",
+   "en": "this (masculine)",
+   "pos": "pron"
+  },
+  {
+   "id": "hadhihi",
+   "ar": "هَذِهِ",
+   "tr": "hādhihi",
+   "en": "this (feminine)",
+   "pos": "pron"
+  },
+  {
+   "id": "dhalika",
+   "ar": "ذَلِكَ",
+   "tr": "dhālika",
+   "en": "that (masculine)",
+   "pos": "pron"
+  },
+  {
+   "id": "ma",
+   "ar": "مَا",
+   "tr": "mā",
+   "en": "what",
+   "pos": "ques"
+  },
+  {
+   "id": "man",
+   "ar": "مَنْ",
+   "tr": "man",
+   "en": "who",
+   "pos": "ques"
+  },
+  {
+   "id": "la",
+   "ar": "لَا",
+   "tr": "lā",
+   "en": "no, not",
+   "pos": "part"
+  },
+  {
+   "id": "naam",
+   "ar": "نَعَمْ",
+   "tr": "naʿam",
+   "en": "yes",
+   "pos": "part"
+  },
+  {
+   "id": "kana",
+   "ar": "كَانَ",
+   "tr": "kāna",
+   "en": "he was",
+   "pos": "verb"
+  },
+  {
+   "id": "qala",
+   "ar": "قَالَ",
+   "tr": "qāla",
+   "en": "he said",
+   "pos": "verb"
+  },
+  {
+   "id": "kull",
+   "ar": "كُلٌّ",
+   "tr": "kullun",
+   "en": "every, all",
+   "pos": "noun"
+  },
+  {
+   "id": "bayt",
+   "ar": "بَيْتٌ",
+   "tr": "bayt",
+   "en": "house",
+   "pos": "noun"
+  },
+  {
+   "id": "kitab",
+   "ar": "كِتَابٌ",
+   "tr": "kitāb",
+   "en": "book",
+   "pos": "noun"
+  },
+  {
+   "id": "maa",
+   "ar": "مَاءٌ",
+   "tr": "māʾ",
+   "en": "water",
+   "pos": "noun"
+  },
+  {
+   "id": "yawm",
+   "ar": "يَوْمٌ",
+   "tr": "yawm",
+   "en": "day",
+   "pos": "noun"
+  },
+  {
+   "id": "layl",
+   "ar": "لَيْلٌ",
+   "tr": "layl",
+   "en": "night",
+   "pos": "noun"
+  },
+  {
+   "id": "rajul",
+   "ar": "رَجُلٌ",
+   "tr": "rajul",
+   "en": "man",
+   "pos": "noun"
+  },
+  {
+   "id": "imraa",
+   "ar": "امْرَأَةٌ",
+   "tr": "imraʾa",
+   "en": "woman",
+   "pos": "noun"
+  },
+  {
+   "id": "walad",
+   "ar": "وَلَدٌ",
+   "tr": "walad",
+   "en": "boy",
+   "pos": "noun"
+  },
+  {
+   "id": "bint",
+   "ar": "بِنْتٌ",
+   "tr": "bint",
+   "en": "girl",
+   "pos": "noun"
+  },
+  {
+   "id": "ab",
+   "ar": "أَبٌ",
+   "tr": "ab",
+   "en": "father",
+   "pos": "noun"
+  },
+  {
+   "id": "umm",
+   "ar": "أُمٌّ",
+   "tr": "umm",
+   "en": "mother",
+   "pos": "noun"
+  },
+  {
+   "id": "akh",
+   "ar": "أَخٌ",
+   "tr": "akh",
+   "en": "brother",
+   "pos": "noun"
+  },
+  {
+   "id": "ukht",
+   "ar": "أُخْتٌ",
+   "tr": "ukht",
+   "en": "sister",
+   "pos": "noun"
+  },
+  {
+   "id": "ism",
+   "ar": "اِسْمٌ",
+   "tr": "ism",
+   "en": "name",
+   "pos": "noun"
+  },
+  {
+   "id": "shay",
+   "ar": "شَيْءٌ",
+   "tr": "shayʾ",
+   "en": "thing",
+   "pos": "noun"
+  },
+  {
+   "id": "waqt",
+   "ar": "وَقْتٌ",
+   "tr": "waqt",
+   "en": "time",
+   "pos": "noun"
+  },
+  {
+   "id": "nas",
+   "ar": "نَاسٌ",
+   "tr": "nās",
+   "en": "people",
+   "pos": "noun"
+  },
+  {
+   "id": "ayn_eye",
+   "ar": "عَيْنٌ",
+   "tr": "ʿayn",
+   "en": "eye",
+   "pos": "noun"
+  },
+  {
+   "id": "yad",
+   "ar": "يَدٌ",
+   "tr": "yad",
+   "en": "hand",
+   "pos": "noun"
+  },
+  {
+   "id": "ras",
+   "ar": "رَأْسٌ",
+   "tr": "raʾs",
+   "en": "head",
+   "pos": "noun"
+  },
+  {
+   "id": "qalb",
+   "ar": "قَلْبٌ",
+   "tr": "qalb",
+   "en": "heart",
+   "pos": "noun"
+  },
+  {
+   "id": "bab",
+   "ar": "بَابٌ",
+   "tr": "bāb",
+   "en": "door",
+   "pos": "noun"
+  },
+  {
+   "id": "madina",
+   "ar": "مَدِينَةٌ",
+   "tr": "madīna",
+   "en": "city",
+   "pos": "noun"
+  },
+  {
+   "id": "balad",
+   "ar": "بَلَدٌ",
+   "tr": "balad",
+   "en": "country",
+   "pos": "noun"
+  },
+  {
+   "id": "ard",
+   "ar": "أَرْضٌ",
+   "tr": "arḍ",
+   "en": "earth, land",
+   "pos": "noun"
+  },
+  {
+   "id": "sama",
+   "ar": "سَمَاءٌ",
+   "tr": "samāʾ",
+   "en": "sky",
+   "pos": "noun"
+  },
+  {
+   "id": "shams",
+   "ar": "شَمْسٌ",
+   "tr": "shams",
+   "en": "sun",
+   "pos": "noun"
+  },
+  {
+   "id": "qamar",
+   "ar": "قَمَرٌ",
+   "tr": "qamar",
+   "en": "moon",
+   "pos": "noun"
+  },
+  {
+   "id": "nur",
+   "ar": "نُورٌ",
+   "tr": "nūr",
+   "en": "light",
+   "pos": "noun"
+  },
+  {
+   "id": "taam",
+   "ar": "طَعَامٌ",
+   "tr": "ṭaʿām",
+   "en": "food",
+   "pos": "noun"
+  },
+  {
+   "id": "khubz",
+   "ar": "خُبْزٌ",
+   "tr": "khubz",
+   "en": "bread",
+   "pos": "noun"
+  },
+  {
+   "id": "lahm",
+   "ar": "لَحْمٌ",
+   "tr": "laḥm",
+   "en": "meat",
+   "pos": "noun"
+  },
+  {
+   "id": "sana",
+   "ar": "سَنَةٌ",
+   "tr": "sana",
+   "en": "year",
+   "pos": "noun"
+  },
+  {
+   "id": "kabir",
+   "ar": "كَبِيرٌ",
+   "tr": "kabīr",
+   "en": "big",
+   "pos": "adj"
+  },
+  {
+   "id": "saghir",
+   "ar": "صَغِيرٌ",
+   "tr": "ṣaghīr",
+   "en": "small",
+   "pos": "adj"
+  },
+  {
+   "id": "jadid",
+   "ar": "جَدِيدٌ",
+   "tr": "jadīd",
+   "en": "new",
+   "pos": "adj"
+  },
+  {
+   "id": "qadim",
+   "ar": "قَدِيمٌ",
+   "tr": "qadīm",
+   "en": "old",
+   "pos": "adj"
+  },
+  {
+   "id": "jamil",
+   "ar": "جَمِيلٌ",
+   "tr": "jamīl",
+   "en": "beautiful",
+   "pos": "adj"
+  },
+  {
+   "id": "tawil",
+   "ar": "طَوِيلٌ",
+   "tr": "ṭawīl",
+   "en": "long, tall",
+   "pos": "adj"
+  },
+  {
+   "id": "qasir",
+   "ar": "قَصِيرٌ",
+   "tr": "qaṣīr",
+   "en": "short",
+   "pos": "adj"
+  },
+  {
+   "id": "kathir",
+   "ar": "كَثِيرٌ",
+   "tr": "kathīr",
+   "en": "much, many",
+   "pos": "adj"
+  },
+  {
+   "id": "qalil",
+   "ar": "قَلِيلٌ",
+   "tr": "qalīl",
+   "en": "little, few",
+   "pos": "adj"
+  },
+  {
+   "id": "harr",
+   "ar": "حَارٌّ",
+   "tr": "ḥārr",
+   "en": "hot",
+   "pos": "adj"
+  },
+  {
+   "id": "barid",
+   "ar": "بَارِدٌ",
+   "tr": "bārid",
+   "en": "cold",
+   "pos": "adj"
+  },
+  {
+   "id": "jayyid",
+   "ar": "جَيِّدٌ",
+   "tr": "jayyid",
+   "en": "good",
+   "pos": "adj"
+  },
+  {
+   "id": "sayyi",
+   "ar": "سَيِّئٌ",
+   "tr": "sayyiʾ",
+   "en": "bad",
+   "pos": "adj"
+  },
+  {
+   "id": "sahl",
+   "ar": "سَهْلٌ",
+   "tr": "sahl",
+   "en": "easy",
+   "pos": "adj"
+  },
+  {
+   "id": "sab",
+   "ar": "صَعْبٌ",
+   "tr": "ṣaʿb",
+   "en": "difficult",
+   "pos": "adj"
+  },
+  {
+   "id": "dhahaba",
+   "ar": "ذَهَبَ",
+   "tr": "dhahaba",
+   "en": "he went",
+   "pos": "verb"
+  },
+  {
+   "id": "jaa",
+   "ar": "جَاءَ",
+   "tr": "jāʾa",
+   "en": "he came",
+   "pos": "verb"
+  },
+  {
+   "id": "akala",
+   "ar": "أَكَلَ",
+   "tr": "akala",
+   "en": "he ate",
+   "pos": "verb"
+  },
+  {
+   "id": "shariba",
+   "ar": "شَرِبَ",
+   "tr": "shariba",
+   "en": "he drank",
+   "pos": "verb"
+  },
+  {
+   "id": "kataba",
+   "ar": "كَتَبَ",
+   "tr": "kataba",
+   "en": "he wrote",
+   "pos": "verb"
+  },
+  {
+   "id": "qaraa",
+   "ar": "قَرَأَ",
+   "tr": "qaraʾa",
+   "en": "he read",
+   "pos": "verb"
+  },
+  {
+   "id": "fataha",
+   "ar": "فَتَحَ",
+   "tr": "fataḥa",
+   "en": "he opened",
+   "pos": "verb"
+  },
+  {
+   "id": "arafa",
+   "ar": "عَرَفَ",
+   "tr": "ʿarafa",
+   "en": "he knew",
+   "pos": "verb"
+  },
+  {
+   "id": "fahima",
+   "ar": "فَهِمَ",
+   "tr": "fahima",
+   "en": "he understood",
+   "pos": "verb"
+  },
+  {
+   "id": "samia",
+   "ar": "سَمِعَ",
+   "tr": "samiʿa",
+   "en": "he heard",
+   "pos": "verb"
+  },
+  {
+   "id": "raa",
+   "ar": "رَأَى",
+   "tr": "raʾā",
+   "en": "he saw",
+   "pos": "verb"
+  },
+  {
+   "id": "ahabba",
+   "ar": "أَحَبَّ",
+   "tr": "aḥabba",
+   "en": "he loved",
+   "pos": "verb"
+  },
+  {
+   "id": "amila",
+   "ar": "عَمِلَ",
+   "tr": "ʿamila",
+   "en": "he worked, he did",
+   "pos": "verb"
+  },
+  {
+   "id": "dakhala",
+   "ar": "دَخَلَ",
+   "tr": "dakhala",
+   "en": "he entered",
+   "pos": "verb"
+  },
+  {
+   "id": "kharaja",
+   "ar": "خَرَجَ",
+   "tr": "kharaja",
+   "en": "he went out",
+   "pos": "verb"
+  },
+  {
+   "id": "jalasa",
+   "ar": "جَلَسَ",
+   "tr": "jalasa",
+   "en": "he sat",
+   "pos": "verb"
+  },
+  {
+   "id": "nama",
+   "ar": "نَامَ",
+   "tr": "nāma",
+   "en": "he slept",
+   "pos": "verb"
+  },
+  {
+   "id": "wahid",
+   "ar": "وَاحِدٌ",
+   "tr": "wāḥid",
+   "en": "one",
+   "pos": "num"
+  },
+  {
+   "id": "ithnan",
+   "ar": "اِثْنَانِ",
+   "tr": "ithnān",
+   "en": "two",
+   "pos": "num"
+  },
+  {
+   "id": "thalatha",
+   "ar": "ثَلَاثَةٌ",
+   "tr": "thalātha",
+   "en": "three",
+   "pos": "num"
+  },
+  {
+   "id": "arbaa",
+   "ar": "أَرْبَعَةٌ",
+   "tr": "arbaʿa",
+   "en": "four",
+   "pos": "num"
+  },
+  {
+   "id": "khamsa",
+   "ar": "خَمْسَةٌ",
+   "tr": "khamsa",
+   "en": "five",
+   "pos": "num"
+  },
+  {
+   "id": "sitta",
+   "ar": "سِتَّةٌ",
+   "tr": "sitta",
+   "en": "six",
+   "pos": "num"
+  },
+  {
+   "id": "sabaa",
+   "ar": "سَبْعَةٌ",
+   "tr": "sabʿa",
+   "en": "seven",
+   "pos": "num"
+  },
+  {
+   "id": "thamaniya",
+   "ar": "ثَمَانِيَةٌ",
+   "tr": "thamāniya",
+   "en": "eight",
+   "pos": "num"
+  },
+  {
+   "id": "tisaa",
+   "ar": "تِسْعَةٌ",
+   "tr": "tisʿa",
+   "en": "nine",
+   "pos": "num"
+  },
+  {
+   "id": "ashara",
+   "ar": "عَشَرَةٌ",
+   "tr": "ʿashara",
+   "en": "ten",
+   "pos": "num"
+  },
+  {
+   "id": "ayna",
+   "ar": "أَيْنَ",
+   "tr": "ayna",
+   "en": "where",
+   "pos": "ques"
+  },
+  {
+   "id": "mata",
+   "ar": "مَتَى",
+   "tr": "matā",
+   "en": "when",
+   "pos": "ques"
+  },
+  {
+   "id": "kayfa",
+   "ar": "كَيْفَ",
+   "tr": "kayfa",
+   "en": "how",
+   "pos": "ques"
+  },
+  {
+   "id": "limadha",
+   "ar": "لِمَاذَا",
+   "tr": "limādhā",
+   "en": "why",
+   "pos": "ques"
+  },
+  {
+   "id": "huna",
+   "ar": "هُنَا",
+   "tr": "hunā",
+   "en": "here",
+   "pos": "adv"
+  },
+  {
+   "id": "hunaka",
+   "ar": "هُنَاكَ",
+   "tr": "hunāka",
+   "en": "there",
+   "pos": "adv"
+  },
+  {
+   "id": "alan",
+   "ar": "الْآنَ",
+   "tr": "al-ān",
+   "en": "now",
+   "pos": "adv"
+  },
+  {
+   "id": "shukran",
+   "ar": "شُكْرًا",
+   "tr": "shukran",
+   "en": "thank you",
+   "pos": "part"
+  }
+ ]
+}
