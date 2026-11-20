@@ -46,7 +46,7 @@ export function createReadScreen({ h, loadDialogues = dialogues.loadDialogues, s
     const list = await loadDialogues();
     const opened = await readOpened();
     const next = dialogues.suggestedDialogue(list, opened);
-    return h("div", { class: "read" },
+    return h("div", {},
       h("div", { class: "card" },
         h("h2", {}, "Dialogues"),
         h("p", { class: "text" }, "Short conversations to read and listen to. Every one is open: start anywhere.")),
@@ -127,7 +127,7 @@ export function createReadScreen({ h, loadDialogues = dialogues.loadDialogues, s
     const bubbles = dialogue.lines.map((line, i) => {
       const detail = h("div", { class: "bubble-detail" },
         h("div", { class: "bubble-tr", dir: "ltr" }, line.tr),
-        h("div", { class: "bubble-en" }, line.en));
+        h("div", {}, line.en));
       detail.hidden = true;
       const bubble = h("button", { type: "button", class: "bubble", "aria-expanded": "false" },
         h("span", { class: "bubble-who" }, dialogues.speakerName(dialogue, line)),
@@ -142,7 +142,7 @@ export function createReadScreen({ h, loadDialogues = dialogues.loadDialogues, s
         type: "button", class: "speak-btn", "aria-label": `Hear line ${i + 1}`, title: "Hear this line",
         onclick: () => { if (playing) stopAll(); speakOne(line.ar); },
       }, "\u{1F50A}");
-      const row = h("div", { class: `bubble-row who-${line.who}` }, bubble, speak);
+      const row = h("div", { class: line.who === "b" ? "bubble-row who-b" : "bubble-row" }, bubble, speak);
       rows.push(row);
       return row;
     });
@@ -154,7 +154,7 @@ export function createReadScreen({ h, loadDialogues = dialogues.loadDialogues, s
     };
     window.addEventListener("hashchange", onLeave);
 
-    return h("div", { class: "practice dialogue" },
+    return h("div", { class: "practice" },
       h("div", { class: "practice-head" }, link("#/read", "← Back to Read")),
       voiceNote(voice),
       h("p", { class: "text small" }, "Tap a line to see what it means."),
