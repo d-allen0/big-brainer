@@ -41,6 +41,27 @@ export function createVocabScreen({
     container.replaceChildren(h("p", { class: "error" }, "Something went wrong: " + (err?.message ?? err)));
   }
 
+  /**
+   * Small speaker button: speaks `text` only when pressed (nothing is ever spoken automatically
+   * before an answer). A failure is shown as a plain message through `onError`.
+   */
+  function speakBtn(text, label, onError) {
+    return h("button", {
+      type: "button",
+      class: "speak-btn",
+      "aria-label": label,
+      title: label,
+      onclick: async () => {
+        try {
+          onError("");
+          await speech.speak(text);
+        } catch (err) {
+          onError(err?.message ?? "Could not play the sound.");
+        }
+      },
+    }, "\u{1F50A}");
+  }
+
   /** Quiet note shown only if Arabic speech is unavailable. Fills in without blocking the page. */
   function voiceBanner() {
     const box = h("div");
@@ -109,6 +130,8 @@ export function createVocabScreen({
       h("div", { class: "row spaced" }, link("#/cards/practice", "Practice", "btn")),
       h("p", { class: "small" }, "Picks the words that could use the most practice. Stop whenever you like."));
 
+    const speakMsg = h("p", { class: "speak-msg small", role: "status" });
+    const setMsg = (t) => { speakMsg.textContent = t; };
     const sets = mastery.map((m) => {
       const list = vocab.wordsOfSet(words, m.set);
       return h("section", { class: "card" },
@@ -120,11 +143,12 @@ export function createVocabScreen({
           list.map((w) =>
             h("div", { class: "word" + (learned(w) ? " learned" : "") },
               h("span", { class: "ar", lang: "ar" }, w.ar),
-              h("span", { class: "small" }, w.en)))),
+              h("span", { class: "small" }, w.en),
+              speakBtn(w.ar, `Hear ${w.en}`, setMsg)))),
         h("div", { class: "row spaced" }, link(`#/cards/practice/set/${m.set}`, "Practice this set", "btn secondary")));
     });
 
-    return h("div", {}, voiceBanner(), progress, ...sets);
+    return h("div", {}, voiceBanner(), progress, speakMsg, ...sets);
   }
 
   // ---------- practice ----------
@@ -183,6 +207,8 @@ export function createVocabScreen({
 
         let answered = false;
         const feedback = h("div", { class: "feedback", role: "status" });
+        const speakMsg = h("p", { class: "speak-msg small", role: "status" });
+        const setMsg = (t) => { speakMsg.textContent = t; };
         const actions = h("div", { class: "actions-bar" }); // pinned above the tab bar
 
         const buttons = q.choices.map((choice) =>
@@ -213,9 +239,12 @@ export function createVocabScreen({
           });
 
           const chosen = correct ? null : words.find((w) => w.id === choice.id);
+          const verdict = h("p", { class: "verdict" }, correct ? "Yes!" : "Not quite.");
           feedback.replaceChildren(
-            h("p", { class: "verdict" }, correct ? "Yes!" : "Not quite."),
-            ...vocab.mistakeNote({ word, chosen }).map((line) => h("p", { class: "text small" }, line)));
+            // meaning-to-Arabic: the Arabic is only revealed after answering, so the button appears now
+            q.promptIsArabic ? verdict : h("div", { class: "verdict-row" }, verdict, speakBtn(word.ar, "Hear it again", setMsg)),
+            ...vocab.mistakeNote({ word, chosen }).map((line) => h("p", { class: "text small" }, line)),
+            speakMsg);
           speech.speak(word.ar).catch(() => {}); // the banner already explains missing voices
 
           stats.answered++;
@@ -237,10 +266,13 @@ export function createVocabScreen({
           h("div", { class: "card center" },
             h("p", { class: "text" }, QUESTION_TEXT[q.kind]),
             q.promptIsArabic
-              ? h("div", { class: "ar prompt", lang: "ar" }, q.prompt)
+              ? h("div", { class: "prompt-row" },
+                  h("div", { class: "ar prompt", lang: "ar" }, q.prompt),
+                  speakBtn(word.ar, "Hear this word", setMsg))
               : h("div", { class: "prompt-en" }, q.prompt)),
           h("div", { class: "choices" }, buttons),
           feedback,
+          q.promptIsArabic ? speakMsg : null,
           actions);
       } catch (err) {
         showError(content, err);

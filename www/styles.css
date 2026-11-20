@@ -253,6 +253,27 @@ main a.letter-btn { color: var(--text); }
   line-height: 1.4;
 }
 
+/* speaker buttons: pressed on purpose, never automatic */
+.speak-btn {
+  flex: none;
+  min-width: 36px;
+  height: 36px;
+  padding: 0 8px;
+  border: 1.5px solid var(--accent);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--accent);
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.prompt-row { display: flex; align-items: center; justify-content: center; gap: 12px; }
+.verdict-row { display: flex; align-items: center; gap: 10px; margin-bottom: 2px; }
+.verdict-row .verdict { margin: 0; }
+.word .speak-btn { height: 32px; margin-top: 2px; }
+.speak-msg { margin: 0; color: var(--muted); }
+.speak-msg:empty { display: none; }
+
 /* Short screens (small phones): tighten further so the answer feedback still fits without scrolling */
 @media (max-height: 700px) {
   main { padding-top: 8px; padding-bottom: 8px; }
