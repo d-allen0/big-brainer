@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "note": "Order is teaching order. id = Unicode name suffix (ARABIC LETTER <ID>). joins: dual = connects both sides (4 forms); right = connects only to the letter before it (2 forms). family = letters sharing a skeleton, told apart by dots.",
+  "letters": [
+    { "id": "alef",  "char": "ا", "name": "أَلِف",  "nameEn": "alif",  "sound": "ā",  "hint": "Long 'a' as in 'father'. Never connects to the letter after it.", "joins": "right", "group": 1, "family": null,   "example": { "ar": "بَاب",     "tr": "bāb",     "en": "door" } },
+    { "id": "beh",   "char": "ب", "name": "بَاء",   "nameEn": "bāʾ",   "sound": "b",  "hint": "Like English 'b'. One dot below.", "joins": "dual", "group": 1, "family": "ba",   "example": { "ar": "بَيْت",    "tr": "bayt",    "en": "house" } },
+    { "id": "teh",   "char": "ت", "name": "تَاء",   "nameEn": "tāʾ",   "sound": "t",  "hint": "Like English 't'. Two dots above.", "joins": "dual", "group": 1, "family": "ba",   "example": { "ar": "تُفَّاح",  "tr": "tuffāḥ",  "en": "apples" } },
+    { "id": "theh",  "char": "ث", "name": "ثَاء",   "nameEn": "thāʾ",  "sound": "th", "hint": "Like 'th' in 'think'. Three dots above.", "joins": "dual", "group": 1, "family": "ba",   "example": { "ar": "ثَلَاثَة", "tr": "thalātha", "en": "three" } },
+
+    { "id": "jeem",  "char": "ج", "name": "جِيم",   "nameEn": "jīm",   "sound": "j",  "hint": "Like 'j' in 'jam'. One dot inside the curve.", "joins": "dual", "group": 2, "family": "jim",  "example": { "ar": "جَمَل",    "tr": "jamal",   "en": "camel" } },
+    { "id": "hah",   "char": "ح", "name": "حَاء",   "nameEn": "ḥāʾ",   "sound": "ḥ",  "hint": "A breathy 'h' from deep in the throat, like fogging a mirror. No dot.", "joins": "dual", "group": 2, "family": "jim",  "example": { "ar": "حَلِيب",   "tr": "ḥalīb",   "en": "milk" } },
+    { "id": "khah",  "char": "خ", "name": "خَاء",   "nameEn": "khāʾ",  "sound": "kh", "hint": "Like 'ch' in Scottish 'loch'. One dot above.", "joins": "dual", "group": 2, "family": "jim",  "example": { "ar": "خُبْز",    "tr": "khubz",   "en": "bread" } },
+
+    { "id": "dal",   "char": "د", "name": "دَال",   "nameEn": "dāl",   "sound": "d",  "hint": "Like English 'd'. Never connects to the letter after it.", "joins": "right", "group": 3, "family": "dal",  "example": { "ar": "دَرْس",    "tr": "dars",    "en": "lesson" } },
+    { "id": "thal",  "char": "ذ", "name": "ذَال",   "nameEn": "dhāl",  "sound": "dh", "hint": "Like 'th' in 'this'. Same shape as dāl plus a dot above.", "joins": "right", "group": 3, "family": "dal",  "example": { "ar": "ذَهَب",    "tr": "dhahab",  "en": "gold" } },
+    { "id": "reh",   "char": "ر", "name": "رَاء",   "nameEn": "rāʾ",   "sound": "r",  "hint": "A quick rolled or tapped 'r'. Never connects to the letter after it.", "joins": "right", "group": 3, "family": "ra",   "example": { "ar": "رَجُل",    "tr": "rajul",   "en": "man" } },
+    { "id": "zain",  "char": "ز", "name": "زَاي",   "nameEn": "zāy",   "sound": "z",  "hint": "Like English 'z'. Same shape as rāʾ plus a dot above.", "joins": "right", "group": 3, "family": "ra",   "example": { "ar": "زَهْرَة",  "tr": "zahra",   "en": "flower" } },
+
+    { "id": "seen",  "char": "س", "name": "سِين",   "nameEn": "sīn",   "sound": "s",  "hint": "Like English 's'. Three small teeth, no dots.", "joins": "dual", "group": 4, "family": "sin",  "example": { "ar": "سَمَك",    "tr": "samak",   "en": "fish" } },
+    { "id": "sheen", "char": "ش", "name": "شِين",   "nameEn": "shīn",  "sound": "sh", "hint": "Like 'sh' in 'ship'. Same shape as sīn plus three dots above.", "joins": "dual", "group": 4, "family": "sin",  "example": { "ar": "شَمْس",    "tr": "shams",   "en": "sun" } },
+    { "id": "sad",   "char": "ص", "name": "صَاد",   "nameEn": "ṣād",   "sound": "ṣ",  "hint": "A heavy, deep 's' with the tongue pulled back. No dot.", "joins": "dual", "group": 4, "family": "sad",  "example": { "ar": "صَبَاح",   "tr": "ṣabāḥ",   "en": "morning" } },
+    { "id": "dad",   "char": "ض", "name": "ضَاد",   "nameEn": "ḍād",   "sound": "ḍ",  "hint": "A heavy, deep 'd'. Same shape as ṣād plus a dot above.", "joins": "dual", "group": 4, "family": "sad",  "example": { "ar": "ضَيْف",    "tr": "ḍayf",    "en": "guest" } },
+
+    { "id": "tah",   "char": "ط", "name": "طَاء",   "nameEn": "ṭāʾ",   "sound": "ṭ",  "hint": "A heavy, deep 't'. A loop with a tall stem.", "joins": "dual", "group": 5, "family": "ta",   "example": { "ar": "طَاوِلَة", "tr": "ṭāwila",  "en": "table" } },
+    { "id": "zah",   "char": "ظ", "name": "ظَاء",   "nameEn": "ẓāʾ",   "sound": "ẓ",  "hint": "A heavy 'th' as in 'this'. Same shape as ṭāʾ plus a dot above.", "joins": "dual", "group": 5, "family": "ta",   "example": { "ar": "ظَرْف",    "tr": "ẓarf",    "en": "envelope" } },
+    { "id": "ain",   "char": "ع", "name": "عَيْن",  "nameEn": "ʿayn",  "sound": "ʿ",  "hint": "A voiced squeeze deep in the throat. No English equivalent, so lean on the audio.", "joins": "dual", "group": 5, "family": "ayn",  "example": { "ar": "عَيْن",    "tr": "ʿayn",    "en": "eye" } },
+    { "id": "ghain", "char": "غ", "name": "غَيْن",  "nameEn": "ghayn", "sound": "gh", "hint": "A gargled sound, like a French 'r'. Same shape as ʿayn plus a dot above.", "joins": "dual", "group": 5, "family": "ayn",  "example": { "ar": "غُرْفَة",  "tr": "ghurfa",  "en": "room" } },
+
+    { "id": "feh",   "char": "ف", "name": "فَاء",   "nameEn": "fāʾ",   "sound": "f",  "hint": "Like English 'f'. One dot above.", "joins": "dual", "group": 6, "family": "fa",   "example": { "ar": "فِيل",     "tr": "fīl",     "en": "elephant" } },
+    { "id": "qaf",   "char": "ق", "name": "قَاف",   "nameEn": "qāf",   "sound": "q",  "hint": "A 'k' made much further back in the throat. Two dots above.", "joins": "dual", "group": 6, "family": "fa",   "example": { "ar": "قَمَر",    "tr": "qamar",   "en": "moon" } },
+    { "id": "kaf",   "char": "ك", "name": "كَاف",   "nameEn": "kāf",   "sound": "k",  "hint": "Like English 'k'.", "joins": "dual", "group": 6, "family": null,   "example": { "ar": "كِتَاب",   "tr": "kitāb",   "en": "book" } },
+    { "id": "lam",   "char": "ل", "name": "لَام",   "nameEn": "lām",   "sound": "l",  "hint": "Like English 'l'. A tall stem.", "joins": "dual", "group": 6, "family": null,   "example": { "ar": "لَيْمُون", "tr": "laymūn",  "en": "lemon" } },
+
+    { "id": "meem",  "char": "م", "name": "مِيم",   "nameEn": "mīm",   "sound": "m",  "hint": "Like English 'm'. A small closed loop.", "joins": "dual", "group": 7, "family": null,   "example": { "ar": "مَدْرَسَة", "tr": "madrasa", "en": "school" } },
+    { "id": "noon",  "char": "ن", "name": "نُون",   "nameEn": "nūn",   "sound": "n",  "hint": "Like English 'n'. One dot above.", "joins": "dual", "group": 7, "family": "ba",   "example": { "ar": "نَجْم",    "tr": "najm",    "en": "star" } },
+
+    { "id": "heh",   "char": "ه", "name": "هَاء",   "nameEn": "hāʾ",   "sound": "h",  "hint": "Like English 'h', always pronounced. Its shape changes a lot between positions.", "joins": "dual", "group": 8, "family": null,   "example": { "ar": "هِلَال",   "tr": "hilāl",   "en": "crescent" } },
+    { "id": "waw",   "char": "و", "name": "وَاو",   "nameEn": "wāw",   "sound": "w",  "hint": "'w' as a consonant, or long 'oo' as in 'moon'. Never connects to the letter after it.", "joins": "right", "group": 8, "family": null,   "example": { "ar": "وَرْدَة",  "tr": "warda",   "en": "rose" } },
+    { "id": "yeh",   "char": "ي", "name": "يَاء",   "nameEn": "yāʾ",   "sound": "y",  "hint": "'y' as a consonant, or long 'ee' as in 'see'. Two dots below.", "joins": "dual", "group": 8, "family": "ba",   "example": { "ar": "يَد",      "tr": "yad",     "en": "hand" } }
+  ]
+}
