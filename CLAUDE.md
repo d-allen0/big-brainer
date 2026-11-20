@@ -1,4 +1,6 @@
-# Arabic Learner: project guide
+# Big Brainer: project guide
+
+(Internal identifiers such as the app id, the database name and some file names still say "arabic-learner" on purpose. See 3.1.)
 
 A self-hosted, fully offline Android app for learning Modern Standard Arabic (MSA) as a total beginner, with the long-term goal of reading and understanding the Quran. Built with Capacitor and plain JavaScript. All data stays on the phone.
 
@@ -80,6 +82,7 @@ These exist in the code today and must be removed when the pacing foundation tas
 ### 3.1 Data safety (the learner's progress is sacred)
 
 - Never change the `appId` (`com.dallen0.arabiclearner`) or the signing key. Doing either forces an uninstall, which erases all progress.
+- **The display name is only a label** (`appName` in `capacitor.config.json`, currently "Big Brainer") and is safe to change. **The IndexedDB name `arabic-learner` in `db.js` is not the display name and must never change.** Renaming it would open an empty database and make the learner's progress appear to vanish. Leave the old "arabic-learner" identifiers alone even when the app is renamed.
 - IndexedDB changes need a version bump and a migration. Never drop or rename a store without migrating its data.
 - Card ids are stable identifiers (`alphabet:<letter>:<kind>[:<position>]`). Never change an id format without a migration.
 - Never ship anything that clears storage.
