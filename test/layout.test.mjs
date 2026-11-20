@@ -326,6 +326,60 @@ for (const { w, h } of SIZES) {
       });
     });
 
+    describe(`Read at ${tag}`, { skip }, () => {
+      for (const font of [null, "FreeMono"]) it(`the list and every dialogue fit sideways, bubbles stay readable, Hear whole dialogue is reachable${font ? ` (taller font: ${font})` : ""}`, async () => {
+        const ctx = await browser.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: 2, hasTouch: true, isMobile: true, bypassCSP: !!font });
+        const page = await ctx.newPage();
+        if (withVoice) await page.addInitScript(FAKE_TTS);
+        const errors = [];
+        page.on("pageerror", (e) => errors.push(e.message));
+        const style = () => font ? page.addStyleTag({ content: `body, a, button, .ar { font-family: "${font}" !important; }` }) : null;
+        try {
+          await page.goto(`${base}#/read`);
+          await page.waitForSelector(".dialogue-row");
+          await style();
+          await page.waitForTimeout(100);
+          const list = await page.evaluate(() => ({
+            docW: document.documentElement.scrollWidth, vw: innerWidth,
+            rows: [...document.querySelectorAll(".dialogue-row")].map((r) => { const b = r.getBoundingClientRect(); return { h: b.height, left: b.left, right: b.right }; }),
+          }));
+          assert.equal(list.rows.length, 6);
+          assert.ok(list.docW <= list.vw, `list: no horizontal overflow (${list.docW} vs ${list.vw})`);
+          assert.ok(list.rows.every((r) => r.h >= 44 && r.left >= 0 && r.right <= list.vw), "list rows are big enough and on screen");
+
+          const ids = await page.$$eval(".dialogue-row", (as) => as.map((a) => a.getAttribute("href").split("/").pop()));
+          for (const id of ids) {
+            await page.goto(`${base}#/read/dialogue/${id}`);
+            await page.waitForSelector(".bubble");
+            await style();
+            // Open every line: the worst case for height and width.
+            for (const b of await page.$$(".bubble")) await b.click();
+            await page.waitForTimeout(60);
+            const m = await page.evaluate(() => {
+              const box = (e) => { const r = e.getBoundingClientRect(); return { top: r.top, bottom: r.bottom, left: r.left, right: r.right, h: r.height }; };
+              const hear = [...document.querySelectorAll("button")].find((b) => /Hear whole dialogue/.test(b.textContent));
+              return {
+                docW: document.documentElement.scrollWidth, vw: innerWidth, vh: innerHeight,
+                tabTop: box(document.querySelector(".tabbar")).top, topBottom: box(document.querySelector(".topbar")).bottom,
+                bubbles: [...document.querySelectorAll(".bubble")].map(box),
+                speakers: [...document.querySelectorAll(".bubble-row .speak-btn")].map(box),
+                hear: box(hear),
+              };
+            });
+            assert.ok(m.docW <= m.vw, `${id}: no horizontal overflow (${m.docW} vs ${m.vw})`);
+            assert.ok(m.bubbles.every((b) => b.left >= 0 && b.right <= m.vw), `${id}: bubbles stay on screen`);
+            assert.ok(m.bubbles.every((b) => b.right - b.left >= m.vw * 0.5), `${id}: bubbles are wide enough to read`);
+            assert.ok(m.speakers.every((b) => b.h >= 32 && b.left >= 0 && b.right <= m.vw), `${id}: speaker buttons fit`);
+            assert.ok(m.hear.h >= 40 && m.hear.bottom <= m.tabTop + 0.5, `${id}: Hear whole dialogue sits above the tab bar (${m.hear.bottom} vs ${m.tabTop})`);
+            assert.ok(m.hear.top >= m.topBottom - 0.5, `${id}: Hear whole dialogue is not under the title bar`);
+          }
+          assert.deepEqual(errors, []);
+        } finally {
+          await ctx.close();
+        }
+      });
+    });
+
     describe(`Phrases at ${tag}`, { skip }, () => {
       it("the toggle and phrase overview fit sideways, with the toggle visible at the top", async () => {
         const { ctx, page, errors } = await newPage(w, h, withVoice);

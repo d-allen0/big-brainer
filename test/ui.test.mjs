@@ -30,9 +30,14 @@ const { createOptionsScreen, PREFS_KEY } = await import(path.join(WWW, "options-
 const phraseLogic = await import(path.join(WWW, "phrases.js"));
 const phraseList = phraseLogic.parsePhrases(JSON.parse(fs.readFileSync(path.join(WWW, "phrases.json"), "utf8")));
 // The shared test environment only knows the letters and words files, so teach its fetch about phrases here.
+const dialogueLogic = await import(path.join(WWW, "dialogues.js"));
+const dialoguesRaw = JSON.parse(fs.readFileSync(path.join(WWW, "dialogues.json"), "utf8"));
+const dialogueList = dialogueLogic.parseDialogues(dialoguesRaw);
+const { createReadScreen } = await import(path.join(WWW, "read-screen.js"));
 const baseFetch = globalThis.fetch;
 const phrasesRaw = JSON.parse(fs.readFileSync(path.join(WWW, "phrases.json"), "utf8"));
-globalThis.fetch = async (url) => (String(url).includes("phrases") ? { ok: true, status: 200, json: async () => phrasesRaw } : baseFetch(url));
+globalThis.fetch = async (url) => (String(url).includes("phrases") ? { ok: true, status: 200, json: async () => phrasesRaw }
+  : String(url).includes("dialogues") ? { ok: true, status: 200, json: async () => dialoguesRaw } : baseFetch(url));
 
 const byId = Object.fromEntries(letters.map((l) => [l.id, l]));
 const byAr = Object.fromEntries(words.map((w) => [w.ar, w]));
@@ -1319,6 +1324,184 @@ describe("Quiz", () => {
     assert.ok(hasButton("Next", "Finish round"));
     const broken = createQuizScreen({ h, loadLetters: async () => parsedLetters, loadWords: async () => parsedWords, loadPhrases: async () => phraseList, store: { getAllCards: async () => { throw new Error("storage unavailable"); } }, speech: { checkArabic: async () => ({ ok: true }) } });
     await assert.rejects(broken({ parts: ["quiz"] }), /storage unavailable/);
+  });
+});
+
+// ---------------------------------------------------------------------- Read
+
+describe("Read: dialogues", () => {
+  const SPEED_WORDS = /\b(timer|seconds?|faster|quicker|slower|speed|hurry|time limit)\b/i;
+  const bubbles = () => $$(".bubble");
+  const tab = () => $(".tabbar a[aria-current]")?.textContent;
+
+  function memoryStore(initial = {}) {
+    const meta = new Map(Object.entries(initial));
+    return { meta, getMeta: async (k, f = null) => (meta.has(k) ? structuredClone(meta.get(k)) : f), setMeta: async (k, v) => { meta.set(k, structuredClone(v)); } };
+  }
+  function fakeSpeech({ ok = true, failAt = null } = {}) {
+    const said = [];
+    let release = null;
+    const speech = {
+      said, stops: 0, opened: false, hold: false,
+      checkArabic: async () => (ok ? { ok: true } : { ok: false, code: "no-arabic-voice", message: "No Arabic voice is installed." }),
+      speak: async (t) => {
+        if (failAt !== null && said.length === failAt) throw new Error("The speech engine stopped.");
+        said.push(t);
+        if (speech.hold) await new Promise((r) => { release = r; });
+      },
+      stop: async () => { speech.stops++; release?.(); },
+      openVoiceInstall: async () => { speech.opened = true; },
+      finishOne: () => release?.(),
+    };
+    return speech;
+  }
+  async function mountDialogue(id, { speech = fakeSpeech(), store = memoryStore() } = {}) {
+    const screen = createReadScreen({ h, loadDialogues: async () => dialogueList, store, speech });
+    let title = "";
+    document.querySelector("#view").replaceChildren(await screen({ parts: ["read", "dialogue", id], setTitle: (t) => { title = t; } }));
+    await sleep(20);
+    return { speech, store, title: () => title };
+  }
+
+  it("the Read tab lists six dialogues, all open, with Up next on the first", async () => {
+    await go("#/read", () => $$(".dialogue-row").length > 0);
+    audit("read list");
+    assert.equal($("#screen-title").textContent, "Read");
+    assert.equal(tab(), "Read");
+    const rows = $$(".dialogue-row");
+    assert.equal(rows.length, 6);
+    assert.deepEqual(rows.map((r) => r.getAttribute("href")), dialogueList.map((d) => `#/read/dialogue/${d.id}`), "every dialogue is directly reachable");
+    assert.equal($$(".tag").length, 1);
+    assert.ok(rows[0].textContent.includes("Up next"));
+    assert.ok(!text().includes("Coming soon"));
+    assert.ok(!SPEED_WORDS.test(text()));
+  });
+
+  it("a dialogue shows one bubble per line with the Arabic, no meanings until tapped, and a way back", async () => {
+    await go("#/read/dialogue/shop", () => bubbles().length > 0);
+    audit("dialogue");
+    assert.equal($("#screen-title").textContent, "In a shop");
+    assert.equal(tab(), "Read");
+    const d = dialogueList.find((x) => x.id === "shop");
+    assert.equal(bubbles().length, d.lines.length);
+    assert.deepEqual($$(".bubble-ar").map((e) => e.textContent), d.lines.map((l) => l.ar));
+    assert.deepEqual($$(".bubble-who").map((e) => e.textContent), d.lines.map((l) => d.speakers[l.who]));
+    assert.ok(hasLink("#/read"), "Back to Read");
+    assert.ok($$(".bubble-detail").every((e) => e.hidden), "meanings stay hidden until a line is tapped");
+    assert.ok(!text().includes(d.lines[0].en) || $(".bubble-detail").hidden);
+  });
+
+  it("tapping a line shows its transliteration and meaning, and tapping again hides them", async () => {
+    await go("#/read/dialogue/greeting", () => bubbles().length > 0);
+    const d = dialogueList.find((x) => x.id === "greeting");
+    const first = bubbles()[0];
+    first.click();
+    const detail = first.querySelector(".bubble-detail");
+    assert.equal(detail.hidden, false);
+    assert.equal(first.getAttribute("aria-expanded"), "true");
+    assert.ok(detail.textContent.includes(d.lines[0].tr) && detail.textContent.includes(d.lines[0].en));
+    assert.ok(bubbles()[1].querySelector(".bubble-detail").hidden, "other lines stay closed");
+    first.click();
+    assert.equal(detail.hidden, true);
+    assert.equal(first.getAttribute("aria-expanded"), "false");
+  });
+
+  it("an unknown dialogue id falls back to the list", async () => {
+    await go("#/read/dialogue/nope", () => $$(".dialogue-row").length > 0);
+    assert.equal($$(".dialogue-row").length, 6);
+    await go("#/read/dialogue", () => $$(".dialogue-row").length > 0);
+  });
+
+  it("without an Arabic voice there is a clear note, reading still works, and Hear whole dialogue is off", async () => {
+    const { speech } = await mountDialogue("names", { speech: fakeSpeech({ ok: false }) });
+    assert.ok($(".note")?.textContent.includes("No Arabic voice is installed."));
+    $$("button").find((b) => b.textContent === "Open voice settings").click();
+    assert.equal(speech.opened, true);
+    assert.equal($$("button").find((b) => b.textContent === "Hear whole dialogue").disabled, true);
+    bubbles()[0].click();
+    assert.equal(bubbles()[0].querySelector(".bubble-detail").hidden, false, "meanings still open");
+  });
+
+  it("nothing is spoken until a button is pressed; a line's speaker says only that line", async () => {
+    const { speech } = await mountDialogue("directions");
+    assert.equal(speech.said.length, 0);
+    const d = dialogueList.find((x) => x.id === "directions");
+    $$(".bubble-row .speak-btn")[2].click();
+    await sleep(10);
+    assert.deepEqual(speech.said, [d.lines[2].ar]);
+  });
+
+  it("Hear whole dialogue says every line in order, then goes back to its first label", async () => {
+    const { speech } = await mountDialogue("cafe");
+    const d = dialogueList.find((x) => x.id === "cafe");
+    const hear = () => $$("button").find((b) => /Hear whole dialogue|Stop/.test(b.textContent));
+    hear().click();
+    await sleep(30);
+    assert.deepEqual(speech.said, d.lines.map((l) => l.ar));
+    assert.equal(hear().textContent, "Hear whole dialogue");
+    assert.equal($$(".playing").length, 0);
+  });
+
+  it("Stop ends the playback part way through", async () => {
+    const speech = fakeSpeech();
+    speech.hold = true;
+    await mountDialogue("shop", { speech });
+    const hear = () => $$("button").find((b) => /Hear whole dialogue|Stop/.test(b.textContent));
+    hear().click();
+    await sleep(10);
+    assert.equal(hear().textContent, "Stop");
+    assert.equal($$(".playing").length, 1, "the line being read is marked");
+    hear().click();
+    await sleep(20);
+    assert.ok(speech.stops >= 1);
+    assert.equal(hear().textContent, "Hear whole dialogue");
+    assert.equal(speech.said.length, 1, "no further lines are spoken after Stop");
+  });
+
+  it("leaving the screen stops the speech", async () => {
+    const speech = fakeSpeech();
+    speech.hold = true;
+    await mountDialogue("family", { speech });
+    $$("button").find((b) => b.textContent === "Hear whole dialogue").click();
+    await sleep(10);
+    const before = speech.stops;
+    window.dispatchEvent(new window.Event("hashchange"));
+    await sleep(20);
+    assert.ok(speech.stops > before, "speech.stop was called");
+    assert.equal(speech.said.length, 1, "nothing more is spoken");
+  });
+
+  it("a speech failure part way through becomes a plain message and playback ends", async () => {
+    const speech = fakeSpeech({ failAt: 1 });
+    await mountDialogue("names", { speech });
+    $$("button").find((b) => b.textContent === "Hear whole dialogue").click();
+    await sleep(30);
+    assert.ok(text().includes("The speech engine stopped."));
+    assert.ok($$("button").some((b) => b.textContent === "Hear whole dialogue"));
+  });
+
+  it("opening a dialogue moves Up next to the next one; a broken store changes nothing", async () => {
+    const store = memoryStore();
+    await mountDialogue("greeting", { store });
+    await sleep(20);
+    assert.deepEqual(store.meta.get("read.opened"), ["greeting"]);
+    const screen = createReadScreen({ h, loadDialogues: async () => dialogueList, store, speech: fakeSpeech() });
+    document.querySelector("#view").replaceChildren(await screen({ parts: ["read"] }));
+    const rows = $$(".dialogue-row");
+    assert.ok(!rows[0].textContent.includes("Up next") && rows[1].textContent.includes("Up next"));
+    assert.equal(rows.length, 6, "everything stays open");
+
+    const broken = { getMeta: async () => { throw new Error("disk full"); }, setMeta: async () => { throw new Error("disk full"); } };
+    await mountDialogue("shop", { store: broken });
+    assert.equal(bubbles().length, dialogueList.find((d) => d.id === "shop").lines.length, "still readable");
+    const listScreen = createReadScreen({ h, loadDialogues: async () => dialogueList, store: broken, speech: fakeSpeech() });
+    document.querySelector("#view").replaceChildren(await listScreen({ parts: ["read"] }));
+    assert.equal($$(".dialogue-row").length, 6);
+  });
+
+  it("a failed load shows the error instead of a blank screen", async () => {
+    const screen = createReadScreen({ h, loadDialogues: async () => { throw new Error("Could not load dialogues (404)"); }, store: memoryStore(), speech: fakeSpeech() });
+    await assert.rejects(screen({ parts: ["read"] }), /Could not load dialogues \(404\)/);
   });
 });
 
