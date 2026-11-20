@@ -409,6 +409,55 @@ for (const { w, h } of SIZES) {
         }
       });
     });
+
+    describe(`Home at ${tag}`, { skip }, () => {
+      for (const font of [null, "FreeMono"]) {
+        it(`Practice | Browse sit side by side, equal and big enough, with Voice options in the Welcome card${font ? ` (taller font: ${font})` : ""}`, async () => {
+          const ctx = await browser.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: 2, hasTouch: true, isMobile: true, bypassCSP: !!font });
+          const page = await ctx.newPage();
+          if (withVoice) await page.addInitScript(FAKE_TTS);
+          const errors = [];
+          page.on("pageerror", (e) => errors.push(e.message));
+          try {
+            await page.goto(`${base}#/`);
+            await page.waitForSelector(".btn-pair");
+            if (font) await page.addStyleTag({ content: `body, a, button { font-family: "${font}" !important; }` });
+            await page.waitForTimeout(150);
+            const m = await page.evaluate(() => {
+              const box = (e) => { const r = e.getBoundingClientRect(); return { top: r.top, left: r.left, right: r.right, w: r.width, h: r.height }; };
+              const welcome = document.querySelector("#view .card");
+              const voice = [...welcome.querySelectorAll("a")].find((a) => a.textContent === "Voice options");
+              return {
+                docW: document.documentElement.scrollWidth, vw: innerWidth,
+                pairs: [...document.querySelectorAll(".btn-pair")].map((p) => [...p.querySelectorAll("a")].map(box)),
+                voice: voice && box(voice),
+                quiz: box([...document.querySelectorAll("a")].find((a) => a.textContent === "Take a quiz")),
+              };
+            });
+            assert.ok(m.docW <= m.vw, `no horizontal overflow (${m.docW} vs ${m.vw})`);
+            assert.equal(m.pairs.length, 2);
+            for (const [a, b] of m.pairs) {
+              assert.equal(Math.round(a.top), Math.round(b.top), "Practice and Browse are on the same row");
+              assert.ok(a.right <= b.left, "Practice is left of Browse");
+              assert.ok(Math.abs(a.w - b.w) < 2, `equal widths (${a.w} vs ${b.w})`);
+              assert.ok(a.h >= 44 && b.h >= 44, "each button is at least 44px tall");
+              assert.ok(a.left >= 0 && b.right <= m.vw, "both fit on screen");
+            }
+            assert.ok(m.voice && m.voice.h >= 44, "Voice options is in the Welcome card and big enough");
+            assert.ok(m.quiz.h >= 44 && m.quiz.left >= 0 && m.quiz.right <= m.vw);
+            assert.ok(m.quiz.w > m.pairs[0][0].w * 1.5, "Take a quiz is a full-width row");
+
+            // The Quiz button is reachable by scrolling, and Voice options opens its screen.
+            await page.locator("a:text-is('Take a quiz')").scrollIntoViewIfNeeded();
+            await page.click("a:text-is('Voice options')");
+            await page.waitForSelector(".segmented button");
+            assert.deepEqual(errors, []);
+          } finally {
+            await ctx.close();
+          }
+        });
+      }
+    });
   }
 }
 
