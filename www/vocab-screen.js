@@ -241,7 +241,7 @@ export function createVocabScreen({
         const longText = deck.key === "phrases" ? " long" : ""; // phrases are longer, so their Arabic is set a little smaller
 
         let answered = false;
-        const feedback = h("div", { class: "feedback", role: "status" });
+        const feedback = h("div", { class: "feedback" + longText, role: "status" });
         const speakMsg = h("p", { class: "speak-msg small", role: "status" });
         const setMsg = (t) => { speakMsg.textContent = t; };
         const actions = h("div", { class: "actions-bar" }); // pinned above the tab bar
@@ -304,8 +304,8 @@ export function createVocabScreen({
               ? h("div", { class: "prompt-row" },
                   h("div", { class: "ar prompt" + longText, lang: "ar" }, q.prompt),
                   speakBtn(word.ar, `Hear this ${deck.singular}`, setMsg))
-              : h("div", { class: "prompt-en" }, q.prompt)),
-          h("div", { class: "choices" }, buttons),
+              : h("div", { class: "prompt-en" + longText }, q.prompt)),
+          h("div", { class: "choices" + longText }, buttons),
           feedback,
           q.promptIsArabic ? speakMsg : null,
           actions);
