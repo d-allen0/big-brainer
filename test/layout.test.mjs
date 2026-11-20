@@ -480,3 +480,42 @@ describe("Pronunciation buttons in the Chrome layout", { skip }, () => {
     }
   });
 });
+
+describe("Status bar room (Capacitor system-bar insets)", { skip }, () => {
+  // Capacitor hands the Android insets to the page as CSS variables. The title bar must use them.
+  for (const { w, h } of SIZES) {
+    it(`title starts below the status bar and the tab bar clears the gesture bar at ${w}x${h}`, async () => {
+      const { ctx, page } = await newPage(w, h, true);
+      try {
+        await page.goto(`${base}#/home`);
+        await page.waitForSelector(".topbar h1");
+        await page.evaluate(() => {
+          const s = document.documentElement.style;
+          s.setProperty("--safe-area-inset-top", "48px");
+          s.setProperty("--safe-area-inset-bottom", "24px");
+        });
+        await page.waitForTimeout(80);
+        const m = await page.evaluate(() => {
+          const t = document.querySelector(".topbar h1").getBoundingClientRect();
+          const bar = document.querySelector(".tabbar").getBoundingClientRect();
+          const link = document.querySelector(".tabbar a").getBoundingClientRect();
+          return { titleTop: t.top, barBottom: bar.bottom, linkBottom: link.bottom, vh: window.innerHeight };
+        });
+        assert.ok(m.titleTop >= 48, `title top ${m.titleTop} is below the 48px status bar`);
+        assert.ok(m.linkBottom <= m.vh - 24 + 0.5, `tab labels end ${m.linkBottom}, above the 24px gesture bar`);
+        // Still true after scrolling: the pinned title bar must not slide under the status bar.
+        await page.goto(`${base}#/alphabet`);
+        await page.waitForSelector(".topbar h1");
+        await page.evaluate(() => {
+          document.documentElement.style.setProperty("--safe-area-inset-top", "48px");
+          window.scrollTo(0, 400);
+        });
+        await page.waitForTimeout(80);
+        const top = await page.evaluate(() => document.querySelector(".topbar h1").getBoundingClientRect().top);
+        assert.ok(top >= 48, `title stays below the status bar after scrolling (${top})`);
+      } finally {
+        await ctx.close();
+      }
+    });
+  }
+});
