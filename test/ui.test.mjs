@@ -21,6 +21,8 @@ const quizLogic = await import(path.join(WWW, "quiz.js"));
 const vocabLogic = await import(path.join(WWW, "vocab.js"));
 const srsLogic = await import(path.join(WWW, "srs.js"));
 const alphabet = await import(path.join(WWW, "alphabet.js"));
+const ttsLogic = await import(path.join(WWW, "tts.js"));
+const { createOptionsScreen, PREFS_KEY } = await import(path.join(WWW, "options-screen.js"));
 const phraseLogic = await import(path.join(WWW, "phrases.js"));
 const phraseList = phraseLogic.parsePhrases(JSON.parse(fs.readFileSync(path.join(WWW, "phrases.json"), "utf8")));
 // The shared test environment only knows the letters and words files, so teach its fetch about phrases here.
@@ -650,6 +652,233 @@ describe("Cards: phrase practice", () => {
   it("a failed load shows a plain error through the app, not a blank screen", async () => {
     const screen = createVocabScreen({ h, loadWords: async () => words, loadPhrases: async () => { throw new Error("phrases missing"); } });
     await assert.rejects(screen({ parts: ["cards", "phrases"] }), /phrases missing/);
+  });
+});
+
+// ------------------------------------------------------------------- Options
+
+describe("Options: voice and speed", () => {
+  const VOICES = [
+    { id: "ar-a", name: "ar-xa-x-ard-local", lang: "ar-SA", local: true },
+    { id: "ar-b", name: "ar-eg-x-are-local", lang: "ar-EG", local: true },
+    { id: "ar-c", name: "ar-xa-x-arc-network", lang: "ar", local: false },
+  ];
+  const memoryMeta = (initial = null) => {
+    const m = { saved: initial, writes: [], failing: false };
+    m.getMeta = async (_k, fallback = null) => (m.saved === undefined || m.saved === null ? fallback : structuredClone(m.saved));
+    m.setMeta = async (_k, v) => { if (m.failing) throw new Error("disk full"); m.writes.push(structuredClone(v)); m.saved = structuredClone(v); };
+    return m;
+  };
+  function setup({ voices = VOICES, backend = "native", check = { ok: true }, saved = null } = {}) {
+    const spoke = [];
+    const speech = {
+      listVoices: async () => ({ backend, voices }),
+      checkArabic: async () => check,
+      speak: async (text, options) => { if (speech.failing) throw new Error("No Arabic voice"); spoke.push({ text, options, prefs: ttsLogic.getPreferences() }); },
+      setPreferences: ttsLogic.setPreferences,
+      getPreferences: ttsLogic.getPreferences,
+      openVoiceInstall: async () => { speech.opened = true; },
+    };
+    const store = memoryMeta(saved);
+    const screen = createOptionsScreen({ h, speech, store });
+    const mount = async () => { document.querySelector("#view").replaceChildren(await screen({ setTitle: () => {} })); await sleep(10); };
+    return { speech, store, spoke, mount };
+  }
+  const rows = () => $$(".voice-row");
+  const selected = () => $$(".voice-choice.selected").map((b) => b.querySelector(".voice-title").textContent);
+  const speedNow = () => $$(".segmented button.active").map((b) => b.textContent);
+  const done = () => ttsLogic.setPreferences(null);
+
+  it("opens with Automatic selected and Normal speed, speaks nothing, and says what each voice is", async () => {
+    const ctx = setup();
+    await ctx.mount();
+    audit("options");
+    assert.equal(ctx.spoke.length, 0, "nothing is spoken when the screen opens");
+    assert.ok(hasLink("#/"), "Back to Home");
+    assert.deepEqual($$(".voice-title").map((t) => t.textContent), ["Automatic (default)", "Voice 1", "Voice 2", "Voice 3"]);
+    assert.deepEqual($$(".voice-detail").map((t) => t.textContent), [
+      "Uses your phone's best Arabic voice",
+      "Arabic (Saudi Arabia) · works offline",
+      "Arabic (Egypt) · works offline",
+      "Arabic · needs internet",
+    ]);
+    assert.deepEqual($$(".voice-name").map((t) => t.textContent), VOICES.map((v) => v.name));
+    assert.deepEqual(selected(), ["Automatic (default)"]);
+    assert.deepEqual(speedNow(), ["Normal"]);
+    assert.deepEqual($$(".segmented button").map((b) => b.textContent), ["Slow", "Normal", "Fast"]);
+    assert.ok($$(".voice-choice").every((b) => b.getAttribute("aria-pressed") === (b.classList.contains("selected") ? "true" : "false")));
+    assert.ok($$(".speak-btn").every((b) => b.getAttribute("aria-label")), "every speaker button has a label");
+    assert.equal($$(".speak-btn").length, 5, "one per voice row, plus the speed sample");
+    assert.ok(!/later|wait|due|tomorrow|streak/i.test(text()));
+    done();
+  });
+
+  it("choosing a voice selects it, saves it, plays nothing, and is remembered on the next visit", async () => {
+    const ctx = setup();
+    await ctx.mount();
+    $$(".voice-choice")[2].click();
+    await sleep(15);
+    assert.deepEqual(selected(), ["Voice 2"]);
+    assert.deepEqual(ctx.store.saved, { voiceId: "ar-b", speed: "normal" });
+    assert.deepEqual(ttsLogic.getPreferences(), { voiceId: "ar-b", speed: "normal" }, "every pronunciation button now uses it");
+    assert.equal(ctx.spoke.length, 0, "choosing never plays anything");
+    done();
+    await ctx.mount(); // a later visit, with the app's in-memory choice reset
+    assert.deepEqual(selected(), ["Voice 2"], "restored from storage");
+    assert.deepEqual(ttsLogic.getPreferences().voiceId, "ar-b");
+    $$(".voice-choice")[0].click();
+    await sleep(15);
+    assert.deepEqual(selected(), ["Automatic (default)"]);
+    assert.deepEqual(ctx.store.saved, { voiceId: null, speed: "normal" });
+    done();
+  });
+
+  it("each speaker button plays a sample with that voice only when pressed", async () => {
+    const ctx = setup();
+    await ctx.mount();
+    $$(".voice-row .speak-btn")[3].click();
+    await sleep(10);
+    assert.equal(ctx.spoke.length, 1);
+    assert.equal(ctx.spoke[0].text, "مَرْحَبًا");
+    assert.deepEqual(ctx.spoke[0].options, { voiceId: "ar-c" });
+    $$(".voice-row .speak-btn")[0].click();
+    await sleep(10);
+    assert.deepEqual(ctx.spoke[1].options, { voiceId: null }, "Automatic means no particular voice");
+    assert.deepEqual(selected(), ["Automatic (default)"], "hearing a voice does not choose it");
+    done();
+  });
+
+  it("speed: choose Slow or Fast, saved with the voice; the sample uses the chosen speed", async () => {
+    const ctx = setup();
+    await ctx.mount();
+    $$(".voice-choice")[1].click();
+    await sleep(15);
+    $$(".segmented button").find((b) => b.textContent === "Slow").click();
+    await sleep(15);
+    assert.deepEqual(speedNow(), ["Slow"]);
+    assert.deepEqual(ctx.store.saved, { voiceId: "ar-a", speed: "slow" }, "the voice is kept when the speed changes");
+    assert.equal(ctx.spoke.length, 0);
+    $$(".card .row .speak-btn")[0].click();
+    await sleep(10);
+    assert.equal(ctx.spoke.length, 1);
+    assert.equal(ctx.spoke[0].prefs.speed, "slow", "the sample plays at the chosen speed");
+    assert.deepEqual(ctx.spoke[0].options, {});
+    $$(".segmented button").find((b) => b.textContent === "Fast").click();
+    await sleep(15);
+    assert.deepEqual(speedNow(), ["Fast"]);
+    assert.equal(ttsLogic.getPreferences().speed, "fast");
+    done();
+  });
+
+  it("a saved voice that is no longer installed is explained, and Automatic is used", async () => {
+    const ctx = setup({ saved: { voiceId: "uninstalled", speed: "fast" } });
+    await ctx.mount();
+    audit("options missing voice");
+    assert.ok(text().includes("not installed on this phone right now, so the automatic voice is used"));
+    assert.deepEqual(selected(), ["Automatic (default)"]);
+    assert.deepEqual(speedNow(), ["Fast"], "the speed is kept");
+    $$(".voice-choice")[1].click();
+    await sleep(15);
+    assert.ok(!text().includes("not installed"), "the note goes once a real voice is chosen");
+    assert.deepEqual(ctx.store.saved, { voiceId: "ar-a", speed: "fast" });
+    done();
+  });
+
+  it("corrupted or odd saved settings fall back to the defaults without an error", async () => {
+    for (const saved of [{ voiceId: 7, speed: "warp" }, "nonsense", [], 5]) {
+      const ctx = setup({ saved });
+      await ctx.mount();
+      assert.deepEqual(selected(), ["Automatic (default)"]);
+      assert.deepEqual(speedNow(), ["Normal"]);
+      assert.ok(!text().includes("Something went wrong"));
+    }
+    const unreadable = setup();
+    unreadable.store.getMeta = async () => { throw new Error("storage unavailable"); };
+    await unreadable.mount();
+    assert.deepEqual(selected(), ["Automatic (default)"], "unreadable storage is harmless");
+    done();
+  });
+
+  it("no Arabic voice installed: a plain note with a way to install one; speed still works", async () => {
+    const ctx = setup({ voices: [], check: { ok: false, code: "no-arabic-voice", message: "No Arabic voice is installed. Install Arabic in your phone's text-to-speech settings." } });
+    await ctx.mount();
+    audit("options no voice");
+    assert.ok(text().includes("No Arabic voice is installed."));
+    assert.ok(hasButton("Open voice settings"));
+    clickButton("Open voice settings");
+    assert.equal(ctx.speech.opened, true);
+    assert.deepEqual($$(".voice-title").map((t) => t.textContent), ["Automatic (default)"]);
+    $$(".segmented button")[0].click();
+    await sleep(15);
+    assert.deepEqual(speedNow(), ["Slow"]);
+    done();
+  });
+
+  it("no speech engine at all: a plain message and no install button", async () => {
+    const ctx = setup({ voices: [], backend: "none", check: { ok: false, code: "no-backend", message: "This device has no speech engine." } });
+    await ctx.mount();
+    assert.ok(text().includes("This device has no speech engine."));
+    assert.ok(!hasButton("Open voice settings"));
+    assert.ok($(".voice-choice"), "the screen still works");
+    done();
+  });
+
+  it("a failing sample shows a plain message that clears on the next press, and never blocks choosing", async () => {
+    const ctx = setup();
+    await ctx.mount();
+    ctx.speech.failing = true;
+    $$(".voice-row .speak-btn")[1].click();
+    await sleep(10);
+    assert.equal($$(".speak-msg").map((m) => m.textContent).join(""), "No Arabic voice");
+    $$(".voice-choice")[1].click();
+    await sleep(15);
+    assert.deepEqual(selected(), ["Voice 1"]);
+    ctx.speech.failing = false;
+    $$(".voice-row .speak-btn")[1].click();
+    await sleep(10);
+    assert.equal($$(".speak-msg").map((m) => m.textContent).join(""), "");
+    done();
+  });
+
+  it("if saving fails, it says so plainly and the choice still applies for now", async () => {
+    const ctx = setup();
+    await ctx.mount();
+    ctx.store.failing = true;
+    $$(".voice-choice")[2].click();
+    await sleep(15);
+    assert.ok(text().includes("Could not save your choice: disk full."));
+    assert.deepEqual(selected(), ["Voice 2"]);
+    assert.equal(ttsLogic.getPreferences().voiceId, "ar-b");
+    ctx.store.failing = false;
+    $$(".voice-choice")[1].click();
+    await sleep(15);
+    assert.ok(!text().includes("Could not save"), "the message clears after a good save");
+    done();
+  });
+
+  it("one voice, and a long list of voices with long names, both work", async () => {
+    const one = setup({ voices: [VOICES[0]] });
+    await one.mount();
+    assert.equal(rows().length, 2);
+    const many = Array.from({ length: 30 }, (_, i) => ({ id: `v${i}`, name: `ar-xa-x-${"very-long-voice-name-".repeat(4)}${i}`, lang: i % 2 ? "ar-SA" : "ar-MA", local: i % 3 !== 0 }));
+    const lots = setup({ voices: many });
+    await lots.mount();
+    assert.equal(rows().length, 31);
+    $$(".voice-choice")[30].click();
+    await sleep(15);
+    assert.deepEqual(selected(), ["Voice 30"]);
+    assert.ok($$(".voice-detail").some((d) => d.textContent === "Arabic (ar-MA) · needs internet"), "an unfamiliar language code is still shown");
+    done();
+  });
+
+  it("the styles for this screen exist and nothing uses an inline style", async () => {
+    const ctx = setup();
+    await ctx.mount();
+    for (const cls of ["voice-list", "voice-row", "voice-choice", "selected", "voice-title", "voice-detail", "voice-name", "segmented", "three", "active"]) {
+      assert.ok(new RegExp(`\\.${cls}(?![\\w-])`).test(css), `.${cls} is styled`);
+    }
+    assert.equal($$("#view [style]").length, 0);
+    done();
   });
 });
 

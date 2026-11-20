@@ -263,6 +263,31 @@ main .segmented a.active { background: var(--accent); color: var(--accent-text);
 .phrase.learned { border-color: var(--accent); background: var(--ok-bg); }
 .phrase-text { display: flex; flex-direction: column; min-width: 0; }
 .phrase .ar { font-size: 1.5rem; line-height: 1.7; }
+.segmented button { min-height: 44px; padding: 10px 12px; border: 0; background: transparent; color: var(--accent); font: inherit; font-weight: 600; cursor: pointer; }
+.segmented button.active { background: var(--accent); color: var(--accent-text); }
+.segmented.three { grid-template-columns: 1fr 1fr 1fr; }
+.voice-list { display: flex; flex-direction: column; gap: 8px; }
+.voice-row { display: flex; align-items: center; gap: 8px; }
+.voice-choice {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-height: 52px;
+  padding: 6px 12px;
+  text-align: left;
+  background: var(--surface);
+  color: var(--text);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  font: inherit;
+  cursor: pointer;
+}
+.voice-choice.selected { border-color: var(--accent); background: var(--ok-bg); }
+.voice-title { font-weight: 650; }
+.voice-detail { color: var(--muted); }
+.voice-name { overflow-wrap: anywhere; }
 .prompt.long { font-size: 2rem; line-height: 1.5; }
 .choice-ar.long { font-size: 1.25rem; line-height: 1.4; }
 
