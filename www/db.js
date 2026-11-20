@@ -98,6 +98,41 @@ export async function putCards(cards) {
   });
 }
 
+/**
+ * Create cards that do not exist yet; cards that already exist are left untouched, so a
+ * learner's progress is never overwritten. One atomic transaction.
+ * Resolves with how many cards were actually added.
+ */
+export async function addCardsIfMissing(cards) {
+  if (cards.length === 0) return 0;
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction("cards", "readwrite");
+    const store = tx.objectStore("cards");
+    let added = 0;
+    try {
+      for (const card of cards) {
+        const req = store.add(card);
+        req.onsuccess = () => {
+          added++;
+        };
+        // "Already exists" is expected here: swallow it so the transaction keeps going.
+        req.onerror = (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+        };
+      }
+    } catch (err) {
+      tx.abort();
+      reject(err);
+      return;
+    }
+    tx.oncomplete = () => resolve(added);
+    tx.onerror = () => reject(tx.error);
+    tx.onabort = () => reject(tx.error ?? new Error("Transaction aborted"));
+  });
+}
+
 /** Cards with due <= now, most overdue first. Optional deck filter and limit. */
 export async function getDueCards(now, { deck = null, limit = Infinity } = {}) {
   const db = await openDB();

@@ -1,8 +1,10 @@
 // Spaced-repetition scheduling (SM-2 variant). Pure functions: no I/O, no clock.
 // Callers pass `now` (ms since epoch) so behavior is deterministic and testable.
+//
+// PACING RULE (see CLAUDE.md section 1): `due` only decides which cards come FIRST.
+// It never hides, delays or blocks a card. Practice must always have something to serve.
 
 export const DAY_MS = 24 * 60 * 60 * 1000;
-export const RELEARN_MS = 10 * 60 * 1000; // a failed card comes back in 10 minutes
 export const MIN_EASE = 1.3;
 export const START_EASE = 2.5;
 
@@ -45,7 +47,7 @@ export function review(card, grade, now) {
     next.reps = 0;
     next.interval = 0;
     next.lapses = card.lapses + 1;
-    next.due = now + RELEARN_MS;
+    next.due = now; // a missed card is eligible again right away; no waiting
   } else {
     if (card.reps === 0) next.interval = 1;
     else if (card.reps === 1) next.interval = 6;
@@ -65,12 +67,35 @@ export function isDue(card, now) {
   return card.due <= now;
 }
 
-/** Due cards, most overdue first; optional deck filter and limit. */
-export function pickDue(cards, now, { deck = null, limit = Infinity } = {}) {
-  return cards
-    .filter((c) => isDue(c, now) && (deck === null || c.deck === deck))
-    .sort((a, b) => a.due - b.due)
-    .slice(0, limit);
+/**
+ * Cards in the order they should be practiced. NEVER hides a card and never returns an
+ * empty list while matching cards exist (unless limit is 0).
+ *   1. Cards whose time has come, most overdue first.
+ *   2. Everything else, weakest first (lowest ease, then most lapses, then fewest
+ *      correct answers in a row), soonest-due as the tie-break.
+ * Optional deck filter and limit.
+ */
+export function practiceOrder(cards, now, { deck = null, limit = Infinity } = {}) {
+  if (!(limit === Infinity || (Number.isInteger(limit) && limit >= 0))) {
+    throw new RangeError("limit must be a non-negative integer or Infinity");
+  }
+  if (!Number.isFinite(now)) throw new TypeError("practiceOrder requires a numeric `now`");
+  const pool = cards.filter((c) => deck === null || c.deck === deck);
+  const ready = pool.filter((c) => isDue(c, now)).sort((a, b) => a.due - b.due || weaker(a, b));
+  const rest = pool.filter((c) => !isDue(c, now)).sort((a, b) => weaker(a, b) || a.due - b.due);
+  return [...ready, ...rest].slice(0, limit);
+}
+
+/** Put a missed item back into a session queue a few places later (not mutating the queue). */
+export function requeueAfter(queue, item, gap = 3) {
+  if (!Number.isInteger(gap) || gap < 0) throw new RangeError("gap must be a non-negative integer");
+  const at = Math.min(gap, queue.length);
+  return [...queue.slice(0, at), item, ...queue.slice(at)];
+}
+
+// Negative when `a` is weaker than `b`.
+function weaker(a, b) {
+  return a.ease - b.ease || b.lapses - a.lapses || a.reps - b.reps;
 }
 
 function round2(n) {

@@ -1,10 +1,13 @@
 // Alphabet module: letter data validation, joined forms, spaced-repetition cards,
-// unlock progression and multiple-choice question building.
-// Pure logic: no DOM, no storage. The screen that uses this comes in a later task.
+// a suggested learning path and multiple-choice question building.
+// Pure logic: no DOM, no storage.
+//
+// PACING RULE (see CLAUDE.md section 1): progress here only ever produces SUGGESTIONS
+// ("up next", a gentle heads-up). Nothing in this file may block access to any letter.
 
 import { newCard } from "./srs.js";
 
-export const ZWJ = "‍"; // zero-width joiner: makes a letter render in its joined form
+export const ZWJ = String.fromCharCode(0x200d); // zero-width joiner: makes a letter render in its joined form
 export const DECK = "alphabet";
 export const KINDS = Object.freeze(["name", "sound", "form"]);
 export const POSITIONS = Object.freeze(["initial", "medial", "final"]);
@@ -106,25 +109,57 @@ export function cardsForGroup(letters, group, now, kinds = KINDS) {
   return letters.filter((l) => l.group === group).flatMap((l) => cardsForLetter(l, now, kinds));
 }
 
-// ---- progression ----
+// ---- suggested path (information only; never a gate) ----
 
 /**
- * How many groups are open. Group 1 always is. The next group opens once at least
- * `threshold` of the newest open group's cards have been answered correctly `minReps`
- * times in a row. Unseen cards count as not learned.
+ * How well each group is known, from the learner's own answers.
+ * A card counts as learned once it has been answered correctly `minReps` times in a row.
+ * Cards that have not been created yet count as not learned.
+ * Returns [{ group, total, learned, ratio }] in group order.
  */
-export function unlockedGroupCount(storedCards, letters, { threshold = 0.8, minReps = 2, kinds = KINDS } = {}) {
-  if (!(threshold > 0 && threshold <= 1)) throw new RangeError("threshold must be in (0, 1]");
-  const totalGroups = groupsOf(letters).length;
+export function groupMastery(storedCards, letters, { minReps = 2, kinds = KINDS } = {}) {
   const byId = new Map(storedCards.map((c) => [c.id, c]));
-  let open = 1;
-  while (open < totalGroups) {
-    const expected = cardsForGroup(letters, open, 0, kinds);
+  return groupsOf(letters).map((_, i) => {
+    const group = i + 1;
+    const expected = cardsForGroup(letters, group, 0, kinds);
     const learned = expected.filter((c) => (byId.get(c.id)?.reps ?? 0) >= minReps).length;
-    if (expected.length === 0 || learned / expected.length < threshold) break;
-    open++;
+    return { group, total: expected.length, learned, ratio: expected.length === 0 ? 0 : learned / expected.length };
+  });
+}
+
+/**
+ * The group to suggest next: the first group that is not yet learned to `threshold`.
+ * Once every group is, the last group is returned. This is only a suggestion;
+ * every group stays open.
+ */
+export function suggestedGroup(storedCards, letters, { threshold = 0.8, minReps = 2, kinds = KINDS } = {}) {
+  if (!(threshold > 0 && threshold <= 1)) throw new RangeError("threshold must be in (0, 1]");
+  const mastery = groupMastery(storedCards, letters, { minReps, kinds });
+  const next = mastery.find((m) => m.ratio < threshold);
+  return next ? next.group : mastery.length;
+}
+
+/**
+ * True when `group` is `margin` or more groups past the suggested one, which is the
+ * cue for one gentle, dismissible heads-up. It must never block anything.
+ */
+export function farAhead(group, suggested, margin = 2) {
+  if (!Number.isInteger(group) || !Number.isInteger(suggested)) throw new TypeError("groups must be integers");
+  if (!Number.isInteger(margin) || margin < 1) throw new RangeError("margin must be an integer >= 1");
+  return group - suggested >= margin;
+}
+
+/**
+ * Short, calm explanation after an answer: what the right letter is and, if the learner
+ * picked a different letter, what that one looks or sounds like. Returns an array of lines.
+ */
+export function mistakeNote({ letter, chosen = null }) {
+  if (!letter || !letter.id) throw new TypeError("mistakeNote requires a letter");
+  const lines = [`${letter.char} (${letter.nameEn}) sounds like "${letter.sound}". ${letter.hint}`];
+  if (chosen && chosen.id !== letter.id) {
+    lines.push(`Not ${chosen.char} (${chosen.nameEn}): ${chosen.hint}`);
   }
-  return open;
+  return lines;
 }
 
 // ---- questions ----
