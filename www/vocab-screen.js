@@ -1,5 +1,7 @@
-// Cards screen: word sets and multiple-choice vocabulary practice.
-// UI only. Logic lives in vocab.js, srs.js, db.js and tts.js.
+// Cards screen: word sets and phrase sets with multiple-choice practice.
+// UI only. Logic lives in vocab.js, phrases.js, srs.js, db.js and tts.js.
+// A toggle at the top of the overview switches between decks. Each deck is described by an
+// entry in DECKS below, so another deck (for example a new list of names) is one more entry.
 //
 // PACING RULES (CLAUDE.md section 1):
 //  - Every set is open at all times; progress only produces suggestions.
@@ -8,6 +10,7 @@
 //  - A wrong answer gets a calm explanation, is spoken, and returns later in the round.
 
 import * as vocab from "./vocab.js";
+import * as phrases from "./phrases.js";
 import * as srs from "./srs.js";
 import * as db from "./db.js";
 import * as tts from "./tts.js";
@@ -15,10 +18,26 @@ import * as tts from "./tts.js";
 const ROUND_SIZE = 10;
 const REQUEUE_GAP = 3;
 const WELL_KNOWN = 0.8;
-const HEADS_UP_KEY = "vocab.headsUpDismissed";
-const QUESTION_TEXT = {
-  ar2en: "What does this word mean?",
-  en2ar: "Which Arabic word means this?",
+
+// One entry per deck. `mod` is the logic module; the adapters hide small naming differences
+// between modules (wordsOfSet / phrasesOfSet, `word` / `phrase` arguments, card extra ids).
+const DECKS = {
+  words: {
+    key: "words", label: "Words", base: "#/cards", noun: "words", singular: "word", mod: vocab, idField: "wordId",
+    headsUpKey: "vocab.headsUpDismissed", layout: "tiles",
+    question: { ar2en: "What does this word mean?", en2ar: "Which Arabic word means this?" },
+    itemsOfSet: (list, set) => vocab.wordsOfSet(list, set),
+    makeQuestion: ({ item, kind, list, rng }) => vocab.buildQuestion({ word: item, kind, words: list, rng, choiceCount: 4 }),
+    note: ({ item, chosen }) => vocab.mistakeNote({ word: item, chosen }),
+  },
+  phrases: {
+    key: "phrases", label: "Phrases", base: "#/cards/phrases", noun: "phrases", singular: "phrase", mod: phrases, idField: "phraseId",
+    headsUpKey: "phrases.headsUpDismissed", layout: "rows",
+    question: { ar2en: "What does this phrase mean?", en2ar: "Which Arabic phrase means this?" },
+    itemsOfSet: (list, set) => phrases.phrasesOfSet(list, set),
+    makeQuestion: ({ item, kind, list, rng }) => phrases.buildQuestion({ phrase: item, kind, phrases: list, rng, choiceCount: 4 }),
+    note: ({ item, chosen }) => phrases.mistakeNote({ phrase: item, chosen }),
+  },
 };
 
 /**
@@ -29,6 +48,7 @@ const QUESTION_TEXT = {
 export function createVocabScreen({
   h,
   loadWords = vocab.loadVocab,
+  loadPhrases = phrases.loadPhrases,
   store = db,
   speech = tts,
   now = () => Date.now(),
@@ -88,7 +108,7 @@ export function createVocabScreen({
         box.remove();
         ctx.dismissed.push(set);
         try {
-          await store.setMeta(HEADS_UP_KEY, [...ctx.dismissed]);
+          await store.setMeta(ctx.deck.headsUpKey, [...ctx.dismissed]);
         } catch {
           // not being able to remember the dismissal is harmless
         }
@@ -98,71 +118,85 @@ export function createVocabScreen({
 
   // ---------- data ----------
 
-  async function load() {
-    const words = await loadWords();
-    const cards = (await store.getAllCards()).filter((c) => c.deck === vocab.DECK);
-    const dismissed = await store.getMeta(HEADS_UP_KEY, []);
+  async function load(deck) {
+    const items = await (deck.key === "words" ? loadWords() : loadPhrases());
+    const cards = (await store.getAllCards()).filter((c) => c.deck === deck.mod.DECK);
+    const dismissed = await store.getMeta(deck.headsUpKey, []);
     return {
-      words,
+      deck,
+      items,
       cards,
       dismissed: Array.isArray(dismissed) ? dismissed : [],
-      suggested: vocab.suggestedSet(cards, words),
-      mastery: vocab.setMastery(cards, words),
+      suggested: deck.mod.suggestedSet(cards, items),
+      mastery: deck.mod.setMastery(cards, items),
     };
+  }
+
+  /** Words | Phrases switch at the top of the overview. The current deck is marked, both are links. */
+  function deckToggle(current) {
+    return h("nav", { class: "segmented", "aria-label": "Choose a deck" },
+      Object.values(DECKS).map((d) =>
+        h("a", { href: d.base, class: d.key === current.key ? "active" : "", ...(d.key === current.key ? { "aria-current": "true" } : {}) }, d.label)));
   }
 
   // ---------- sets overview ----------
 
   function setsView(ctx, setTitle) {
     setTitle("Flashcards");
-    const { words, cards, suggested, mastery } = ctx;
+    const { deck, items, cards, suggested, mastery } = ctx;
     const byId = new Map(cards.map((c) => [c.id, c]));
-    const learned = (w) => vocab.cardsForWord(w, 0).every((c) => (byId.get(c.id)?.reps ?? 0) >= 2);
-    const learnedCount = words.filter(learned).length;
+    const learned = (item) => deck.mod.cardsForSet([item], 1, 0).every((c) => (byId.get(c.id)?.reps ?? 0) >= 2);
+    const learnedCount = items.filter(learned).length;
     const milestones = [];
-    if (learnedCount === words.length) milestones.push(`All ${words.length} words learned`);
+    if (learnedCount === items.length) milestones.push(`All ${items.length} ${deck.noun} learned`);
 
     const progress = h("div", { class: "card" },
       h("h2", {}, "Your progress"),
-      h("div", { class: "stat" }, `${learnedCount} of ${words.length}`),
-      h("p", {}, "words learned"),
+      h("div", { class: "stat" }, `${learnedCount} of ${items.length}`),
+      h("p", {}, `${deck.noun} learned`),
       ...milestones.map((m) => h("p", { class: "text small" }, "✓ " + m)),
-      h("div", { class: "row spaced" }, link("#/cards/practice", "Practice", "btn")),
-      h("p", { class: "small" }, "Picks the words that could use the most practice. Stop whenever you like."));
+      h("div", { class: "row spaced" }, link(`${deck.base}/practice`, "Practice", "btn")),
+      h("p", { class: "small" }, `Picks the ${deck.noun} that could use the most practice. Stop whenever you like.`));
 
     const speakMsg = h("p", { class: "speak-msg small", role: "status" });
     const setMsg = (t) => { speakMsg.textContent = t; };
     const sets = mastery.map((m) => {
-      const list = vocab.wordsOfSet(words, m.set);
+      const list = deck.itemsOfSet(items, m.set);
+      const tile = (w) => deck.layout === "rows"
+        ? h("div", { class: "phrase" + (learned(w) ? " learned" : "") },
+            h("div", { class: "phrase-text" },
+              h("span", { class: "ar", lang: "ar" }, w.ar),
+              h("span", { class: "small" }, w.en)),
+            speakBtn(w.ar, `Hear ${w.en}`, setMsg))
+        : h("div", { class: "word" + (learned(w) ? " learned" : "") },
+            h("span", { class: "ar", lang: "ar" }, w.ar),
+            h("span", { class: "small" }, w.en),
+            speakBtn(w.ar, `Hear ${w.en}`, setMsg));
       return h("section", { class: "card" },
         h("div", { class: "group-head" },
           h("h2", {}, `Set ${m.set}`),
           m.set === suggested && m.ratio < WELL_KNOWN ? h("span", { class: "tag" }, "Up next") : null,
           m.ratio >= WELL_KNOWN ? h("span", { class: "tag quiet" }, "Well known") : null),
-        h("div", { class: "word-grid" },
-          list.map((w) =>
-            h("div", { class: "word" + (learned(w) ? " learned" : "") },
-              h("span", { class: "ar", lang: "ar" }, w.ar),
-              h("span", { class: "small" }, w.en),
-              speakBtn(w.ar, `Hear ${w.en}`, setMsg)))),
-        h("div", { class: "row spaced" }, link(`#/cards/practice/set/${m.set}`, "Practice this set", "btn secondary")));
+        h("div", { class: deck.layout === "rows" ? "phrase-list" : "word-grid" }, list.map(tile)),
+        h("div", { class: "row spaced" }, link(`${deck.base}/practice/set/${m.set}`, "Practice this set", "btn secondary")));
     });
 
-    return h("div", {}, voiceBanner(), progress, speakMsg, ...sets);
+    return h("div", {}, deckToggle(deck), voiceBanner(), progress, speakMsg, ...sets);
   }
 
   // ---------- practice ----------
 
   async function practiceView(ctx, scope, setTitle) {
     setTitle("Practice");
-    const { words } = ctx;
-    const scopeWords = scope.type === "set" ? vocab.wordsOfSet(words, scope.set) : words;
-    const scopeIds = new Set(scopeWords.map((w) => w.id));
+    const { deck, items } = ctx;
+    const mod = deck.mod;
+    const scopeItems = scope.type === "set" ? deck.itemsOfSet(items, scope.set) : items;
+    const scopeIds = new Set(scopeItems.map((w) => w.id));
 
     const content = h("div", { class: "practice-body" });
     const left = h("span", { class: "muted small" });
     const root = h("div", { class: "practice" },
-      h("div", { class: "practice-head" }, link("#/cards", "← Back to words"), left),
+      h("div", { class: "practice-head" }, link(deck.base, `← Back to ${deck.noun}`), left),
       scope.type === "set" ? headsUp(ctx, scope.set) : null,
       voiceBanner(),
       content);
@@ -172,18 +206,18 @@ export function createVocabScreen({
     let stats = { answered: 0, right: 0 };
 
     async function freshCards() {
-      return (await store.getAllCards()).filter((c) => c.deck === vocab.DECK);
+      return (await store.getAllCards()).filter((c) => c.deck === mod.DECK);
     }
 
     async function startRound() {
       let cards = await freshCards();
       // Always something to practice: seed the scope, or for "all" the suggested set.
       // Existing progress is never overwritten.
-      const seedSet = scope.type === "all" ? vocab.suggestedSet(cards, words) : scope.set;
-      await store.addCardsIfMissing(vocab.cardsForSet(words, seedSet, now()));
+      const seedSet = scope.type === "all" ? mod.suggestedSet(cards, items) : scope.set;
+      await store.addCardsIfMissing(mod.cardsForSet(items, seedSet, now()));
       cards = await freshCards();
 
-      const pool = cards.filter((c) => scopeIds.has(c.extra?.wordId));
+      const pool = cards.filter((c) => scopeIds.has(c.extra?.[deck.idField]));
       latest = new Map(cards.map((c) => [c.id, c]));
       queue = srs.practiceOrder(pool, now(), { limit: ROUND_SIZE }).map((c) => c.id);
       stats = { answered: 0, right: 0 };
@@ -192,7 +226,7 @@ export function createVocabScreen({
         left.textContent = "";
         content.replaceChildren(
           h("div", { class: "card" }, h("p", { class: "text" }, "There is nothing to practice here yet."),
-            h("div", { class: "row spaced" }, link("#/cards", "Back to words", "btn"))));
+            h("div", { class: "row spaced" }, link(deck.base, `Back to ${deck.noun}`, "btn"))));
         return;
       }
       showQuestion();
@@ -202,8 +236,9 @@ export function createVocabScreen({
       try {
         const cardId = queue.shift();
         const card = latest.get(cardId);
-        const word = words.find((w) => w.id === card.extra.wordId);
-        const q = vocab.buildQuestion({ word, kind: card.extra.kind, words, rng, choiceCount: 4 });
+        const word = items.find((w) => w.id === card.extra[deck.idField]);
+        const q = deck.makeQuestion({ item: word, kind: card.extra.kind, list: items, rng });
+        const longText = deck.key === "phrases" ? " long" : ""; // phrases are longer, so their Arabic is set a little smaller
 
         let answered = false;
         const feedback = h("div", { class: "feedback", role: "status" });
@@ -214,7 +249,7 @@ export function createVocabScreen({
         const buttons = q.choices.map((choice) =>
           h("button", {
             type: "button",
-            class: "choice" + (q.choicesAreArabic ? " choice-ar" : ""),
+            class: "choice" + (q.choicesAreArabic ? " choice-ar" + longText : ""),
             dir: "auto",
             ...(q.choicesAreArabic ? { lang: "ar" } : {}),
             onclick: () => answer(choice),
@@ -238,12 +273,12 @@ export function createVocabScreen({
             else if (q.choices[i] === choice) b.classList.add("chosen");
           });
 
-          const chosen = correct ? null : words.find((w) => w.id === choice.id);
+          const chosen = correct ? null : items.find((w) => w.id === choice.id);
           const verdict = h("p", { class: "verdict" }, correct ? "Yes!" : "Not quite.");
           feedback.replaceChildren(
             // meaning-to-Arabic: the Arabic is only revealed after answering, so the button appears now
             q.promptIsArabic ? verdict : h("div", { class: "verdict-row" }, verdict, speakBtn(word.ar, "Hear it again", setMsg)),
-            ...vocab.mistakeNote({ word, chosen }).map((line) => h("p", { class: "text small" }, line)),
+            ...deck.note({ item: word, chosen }).map((line) => h("p", { class: "text small" }, line)),
             speakMsg);
           speech.speak(word.ar).catch(() => {}); // the banner already explains missing voices
 
@@ -264,11 +299,11 @@ export function createVocabScreen({
         left.textContent = `${queue.length + 1} left in this round`;
         content.replaceChildren(
           h("div", { class: "card center" },
-            h("p", { class: "text" }, QUESTION_TEXT[q.kind]),
+            h("p", { class: "text" }, deck.question[q.kind]),
             q.promptIsArabic
               ? h("div", { class: "prompt-row" },
-                  h("div", { class: "ar prompt", lang: "ar" }, q.prompt),
-                  speakBtn(word.ar, "Hear this word", setMsg))
+                  h("div", { class: "ar prompt" + longText, lang: "ar" }, q.prompt),
+                  speakBtn(word.ar, `Hear this ${deck.singular}`, setMsg))
               : h("div", { class: "prompt-en" }, q.prompt)),
           h("div", { class: "choices" }, buttons),
           feedback,
@@ -283,7 +318,7 @@ export function createVocabScreen({
       left.textContent = "";
       let next = null;
       try {
-        next = vocab.suggestedSet(await freshCards(), words);
+        next = mod.suggestedSet(await freshCards(), items);
       } catch {
         // the suggestion is optional
       }
@@ -294,7 +329,7 @@ export function createVocabScreen({
           next ? h("p", { class: "small" }, `Suggested next set: ${next}`) : null),
         h("div", { class: "actions-bar" },
           button("Keep going", () => startRound().catch((err) => showError(content, err)), "btn"),
-          link("#/cards", "Back to words", "btn secondary")));
+          link(deck.base, `Back to ${deck.noun}`, "btn secondary")));
     }
 
     await startRound();
@@ -304,13 +339,14 @@ export function createVocabScreen({
   // ---------- routing ----------
 
   return async function render({ parts = ["cards"], setTitle = () => {} } = {}) {
-    const [, view, a, b] = parts;
-    const ctx = await load();
+    const deck = parts[1] === "phrases" ? DECKS.phrases : DECKS.words;
+    const [view, a, b] = parts.slice(deck.key === "phrases" ? 2 : 1);
+    const ctx = await load(deck);
 
     if (view === "practice") {
       if (a === "set") {
         const set = Number(b);
-        if (Number.isInteger(set) && set >= 1 && set <= vocab.setCount(ctx.words)) {
+        if (Number.isInteger(set) && set >= 1 && set <= deck.mod.setCount(ctx.items)) {
           return practiceView(ctx, { type: "set", set }, setTitle);
         }
       } else if (a === undefined) {

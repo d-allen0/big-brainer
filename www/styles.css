@@ -253,6 +253,19 @@ main a.letter-btn { color: var(--text); }
   line-height: 1.4;
 }
 
+/* cards: Words | Phrases switch, and phrase rows */
+.segmented { display: grid; grid-template-columns: 1fr 1fr; gap: 0; margin-bottom: 14px; border: 1.5px solid var(--accent); border-radius: 999px; overflow: hidden; }
+.segmented a { display: block; min-height: 44px; padding: 10px 12px; text-align: center; font-weight: 600; text-decoration: none; color: var(--accent); }
+main .segmented a { color: var(--accent); }
+main .segmented a.active { background: var(--accent); color: var(--accent-text); }
+.phrase-list { display: flex; flex-direction: column; gap: 8px; }
+.phrase { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 6px 10px; background: var(--bg); border: 1.5px solid var(--border); border-radius: var(--radius); }
+.phrase.learned { border-color: var(--accent); background: var(--ok-bg); }
+.phrase-text { display: flex; flex-direction: column; min-width: 0; }
+.phrase .ar { font-size: 1.5rem; line-height: 1.7; }
+.prompt.long { font-size: 2rem; line-height: 1.5; }
+.choice-ar.long { font-size: 1.25rem; line-height: 1.4; }
+
 /* speaker buttons: pressed on purpose, never automatic */
 .speak-btn {
   flex: none;
@@ -303,6 +316,8 @@ main a.letter-btn { color: var(--text); }
   .prompt { font-size: 2.4rem; line-height: 1.2; }
   .prompt-en { font-size: 1.5rem; padding: 6px 0; }
   .choice-ar { font-size: 1.3rem; }
+  .prompt.long { font-size: 1.6rem; line-height: 1.4; }
+  .choice-ar.long { font-size: 1.1rem; }
   .type-input { min-height: 44px; margin-bottom: 6px; }
   .speak-big { min-width: 52px; height: 52px; }
   .choices { grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 6px; } /* short screens only */

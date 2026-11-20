@@ -8,6 +8,7 @@
 
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import path from "node:path";
 import { createEnv, sleep, ZWJ, WWW } from "./helpers.mjs";
 
@@ -20,6 +21,12 @@ const quizLogic = await import(path.join(WWW, "quiz.js"));
 const vocabLogic = await import(path.join(WWW, "vocab.js"));
 const srsLogic = await import(path.join(WWW, "srs.js"));
 const alphabet = await import(path.join(WWW, "alphabet.js"));
+const phraseLogic = await import(path.join(WWW, "phrases.js"));
+const phraseList = phraseLogic.parsePhrases(JSON.parse(fs.readFileSync(path.join(WWW, "phrases.json"), "utf8")));
+// The shared test environment only knows the letters and words files, so teach its fetch about phrases here.
+const baseFetch = globalThis.fetch;
+const phrasesRaw = JSON.parse(fs.readFileSync(path.join(WWW, "phrases.json"), "utf8"));
+globalThis.fetch = async (url) => (String(url).includes("phrases") ? { ok: true, status: 200, json: async () => phrasesRaw } : baseFetch(url));
 
 const byId = Object.fromEntries(letters.map((l) => [l.id, l]));
 const byAr = Object.fromEntries(words.map((w) => [w.ar, w]));
@@ -484,6 +491,165 @@ describe("Cards: pronunciation buttons (on demand only)", () => {
     $$(".choice")[0].click();
     await sleep(10);
     assert.ok(hasButton("Next", "Finish round"));
+  });
+});
+
+// -------------------------------------------------------------- Cards: phrases
+
+describe("Cards: the Words | Phrases toggle and phrase sets", () => {
+  const toggle = () => $$(".segmented a");
+
+  it("the Words overview shows the toggle with Words marked; the tab bar keeps its own marker", async () => {
+    await go("#/cards", () => $$("section.card").length === 10);
+    assert.deepEqual(toggle().map((a) => a.textContent), ["Words", "Phrases"]);
+    assert.deepEqual(toggle().map((a) => a.getAttribute("href")), ["#/cards", "#/cards/phrases"]);
+    assert.equal($(".segmented a.active").textContent, "Words");
+    assert.equal($(".segmented a[aria-current]").textContent, "Words");
+    assert.equal($("[aria-current=page]").dataset.route, "cards", "the tab bar is still the only 'page' marker");
+    assert.equal($$(".word").length, 100, "the word overview is unchanged");
+  });
+
+  it("Phrases: four open sets, one phrase per row, nothing locked, Cards tab still highlighted", async () => {
+    await go("#/cards/phrases", () => $$("section.card").length === 4);
+    audit("phrase sets");
+    assert.equal($("#screen-title").textContent, "Flashcards");
+    assert.equal($("[aria-current=page]").dataset.route, "cards");
+    assert.equal($(".segmented a.active").textContent, "Phrases");
+    assert.ok(text().includes("0 of 40"));
+    assert.ok(text().includes("phrases learned"));
+    assert.equal($$(".phrase").length, 40);
+    assert.equal($$(".word").length, 0);
+    assert.equal($$(".tag").filter((t) => t.textContent === "Up next").length, 1);
+    assert.equal($("section.card .tag").textContent, "Up next", "set 1 is suggested first");
+    for (let s = 1; s <= 4; s++) assert.ok(hasLink(`#/cards/phrases/practice/set/${s}`), `set ${s} is directly reachable`);
+    assert.ok(hasLink("#/cards/phrases/practice"));
+    assert.ok(!$$("#view .card").map((c) => c.textContent).join(" ").toLowerCase().includes("word"), "no word wording in the phrase cards");
+    assert.ok(hasLink("#/cards"), "the toggle goes back to Words");
+  });
+
+  it("each phrase shows its Arabic and meaning, and one speaker button", async () => {
+    assert.equal($$(".phrase .speak-btn").length, 40);
+    const first = $$(".phrase")[0];
+    assert.equal(first.querySelector(".ar").textContent, phraseList[0].ar);
+    assert.ok(first.textContent.includes(phraseList[0].en));
+  });
+
+  it("phrase sets and words stay independent", async () => {
+    await go("#/cards/phrases/practice/set/1", () => $(".choice"));
+    for (let i = 0; i < 3; i++) {
+      const prompt = $(".prompt, .prompt-en").textContent;
+      const p = phraseList.find((x) => x.ar === prompt || x.en === prompt);
+      const right = $(".prompt") ? p.en : p.ar;
+      $$(".choice").find((b) => b.textContent === right).click();
+      await sleep(15);
+      await clickNext();
+    }
+    const stored = await db.getAllCards();
+    assert.ok(stored.some((c) => c.deck === "phrase" && c.reps > 0));
+    await go("#/cards", () => $$("section.card").length === 10);
+    assert.ok(text().includes("0 of 100") || /\d+ of 100/.test(text()));
+    assert.equal(stored.filter((c) => c.deck === "phrase").every((c) => c.id.startsWith("phrase:")), true);
+  });
+});
+
+describe("Cards: phrase practice", () => {
+  const solve = (wrong = false) => {
+    const prompt = $(".prompt, .prompt-en").textContent;
+    const p = phraseList.find((x) => x.ar === prompt || x.en === prompt);
+    const right = $(".prompt") ? p.en : p.ar;
+    const pick = $$(".choice").find((b) => (wrong ? b.textContent !== right : b.textContent === right));
+    pick.click();
+    return { p, right };
+  };
+
+  it("a full round from the suggested set: wording is about phrases, and a wrong answer comes back", async () => {
+    await go("#/cards/phrases/practice", () => $(".choice"));
+    audit("phrase practice");
+    assert.ok(/phrase/.test($(".practice-body .card p.text").textContent), "question text talks about phrases");
+    assert.ok(hasLink("#/cards/phrases"));
+    assert.ok(text().includes("Back to phrases"));
+    assert.equal($$(".choice").length, 4);
+    assert.equal(left(), 10);
+    let asked = 0;
+    let wrongSeen = false;
+    while (!text().includes("Round complete")) {
+      const wrong = asked === 1;
+      assert.ok(/phrase/.test($(".practice-body .card p.text").textContent), "every question talks about phrases");
+      const { p, right } = solve(wrong);
+      await sleep(15);
+      if (wrong) {
+        wrongSeen = true;
+        assert.ok(text().includes("Not quite."));
+        assert.ok($$(".feedback p").some((l) => l.textContent.includes(`${p.ar} (${p.tr}) means "${p.en}".`)), "shows the right answer");
+        audit("phrase wrong answer");
+      } else assert.ok(text().includes("Yes!"));
+      asked++;
+      await clickNext();
+      assert.ok(asked < 30);
+    }
+    assert.ok(wrongSeen);
+    assert.equal(asked, 11, "ten plus the one that came back");
+    assert.ok(text().includes("10 of 11 answers were right."));
+    assert.ok(hasButton("Keep going"));
+    assert.ok(hasLink("#/cards/phrases"), "Back to phrases");
+    audit("phrase summary");
+  });
+
+  it("a far set can be opened directly, with one dismissible heads-up that is remembered per deck", async () => {
+    await go("#/cards/phrases/practice/set/4", () => $(".choice"));
+    const notes = $$(".note").filter((n) => n.textContent.includes("few steps past"));
+    assert.equal(notes.length, 1);
+    audit("phrase heads-up");
+    notes[0].querySelector("button").click();
+    await sleep(20);
+    assert.equal($$(".note").filter((n) => n.textContent.includes("few steps past")).length, 0);
+    assert.deepEqual(await db.getMeta("phrases.headsUpDismissed", []), [4]);
+    assert.ok(!(await db.getMeta("vocab.headsUpDismissed", [])).includes(4), "words keep their own memory");
+    await go("#/cards/phrases/practice/set/4", () => $(".choice"));
+    assert.equal($$(".note").filter((n) => n.textContent.includes("few steps past")).length, 0, "not shown again");
+    assert.ok($(".choice"), "and nothing blocked it");
+  });
+
+  it("phrase practice is never empty, even when everything is scheduled far ahead", async () => {
+    const all = (await db.getAllCards()).filter((c) => c.deck === "phrase");
+    await db.putCards(all.map((c) => ({ ...c, due: Date.now() + 400 * 86_400_000, reps: 5 })));
+    await go("#/cards/phrases/practice", () => $(".choice"));
+    assert.ok(left() >= 1);
+    assert.ok(!text().includes("nothing to practice"));
+  });
+
+  it("unknown phrase routes fall back to the phrase overview; unknown words routes to the word overview", async () => {
+    for (const hash of ["#/cards/phrases/practice/set/99", "#/cards/phrases/practice/set/abc", "#/cards/phrases/whatever", "#/cards/phrases/practice/set/0"]) {
+      await go(hash, () => $$("section.card").length === 4);
+      assert.equal($(".segmented a.active").textContent, "Phrases");
+    }
+    await go("#/cards/phrasez", () => $$("section.card").length === 10);
+    assert.equal($(".segmented a.active").textContent, "Words");
+  });
+
+  it("phrase speaker buttons speak only when pressed; a failure is a plain message", async () => {
+    const speech = { speaks: [], failing: false };
+    const fake = {
+      checkArabic: async () => ({ ok: true }),
+      speak: async (t) => { if (speech.failing) throw new Error("No Arabic voice"); speech.speaks.push(t); },
+      stop: async () => {}, openVoiceInstall: async () => {},
+    };
+    const screen = createVocabScreen({ h, loadWords: async () => words, loadPhrases: async () => phraseList, speech: fake });
+    document.querySelector("#view").replaceChildren(await screen({ parts: ["cards", "phrases"] }));
+    await sleep(20);
+    assert.equal(speech.speaks.length, 0, "nothing spoken automatically");
+    $$(".phrase .speak-btn")[3].click();
+    await sleep(10);
+    assert.deepEqual(speech.speaks, [phraseList[3].ar]);
+    speech.failing = true;
+    $$(".phrase .speak-btn")[0].click();
+    await sleep(10);
+    assert.equal($(".speak-msg").textContent, "No Arabic voice");
+  });
+
+  it("a failed load shows a plain error through the app, not a blank screen", async () => {
+    const screen = createVocabScreen({ h, loadWords: async () => words, loadPhrases: async () => { throw new Error("phrases missing"); } });
+    await assert.rejects(screen({ parts: ["cards", "phrases"] }), /phrases missing/);
   });
 });
 
