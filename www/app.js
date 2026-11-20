@@ -56,6 +56,8 @@ function homeScreen() {
       pair("#/alphabet/practice", "#/alphabet"),
       h("h3", { class: "home-topic" }, "Words"),
       pair("#/cards/practice", "#/cards"),
+      h("h3", { class: "home-topic" }, "Phrases"),
+      pair("#/cards/phrases/practice", "#/cards/phrases"),
       h("a", { class: "btn wide", href: "#/quiz" }, "Take a quiz")));
 }
 
