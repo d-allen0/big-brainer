@@ -3,6 +3,7 @@
 // Screens receive { parts, setTitle }: the hash path split on "/", and a title setter.
 
 import { createLettersScreen } from "./letters-screen.js";
+import { createVocabScreen } from "./vocab-screen.js";
 
 const view = document.getElementById("view");
 const title = document.getElementById("screen-title");
@@ -43,16 +44,20 @@ function homeScreen() {
       h("p", {}, "Go at your own pace. Practice as much or as little as you like."),
       h("div", { class: "row spaced" },
         h("a", { class: "btn", href: "#/alphabet/practice" }, "Practice letters"),
-        h("a", { class: "btn secondary", href: "#/alphabet" }, "Browse the letters"))));
+        h("a", { class: "btn secondary", href: "#/alphabet" }, "Browse the letters")),
+      h("div", { class: "row spaced" },
+        h("a", { class: "btn", href: "#/cards/practice" }, "Practice words"),
+        h("a", { class: "btn secondary", href: "#/cards" }, "Browse the words"))));
 }
 
 const lettersScreen = createLettersScreen({ h });
+const vocabScreen = createVocabScreen({ h });
 
 // route name -> { title, render }
 export const screens = {
   home: { title: "Big Brainer", render: homeScreen },
   alphabet: { title: "Letters", render: lettersScreen },
-  cards: { title: "Flashcards", render: comingSoon("Flashcards") },
+  cards: { title: "Flashcards", render: vocabScreen },
   quran: { title: "Quran reading", render: comingSoon("Quran reading") },
 };
 
