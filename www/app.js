@@ -48,7 +48,9 @@ function homeScreen() {
         h("a", { class: "btn secondary", href: "#/alphabet" }, "Browse the letters")),
       h("div", { class: "row spaced" },
         h("a", { class: "btn", href: "#/cards/practice" }, "Practice words"),
-        h("a", { class: "btn secondary", href: "#/cards" }, "Browse the words"))));
+        h("a", { class: "btn secondary", href: "#/cards" }, "Browse the words")),
+      h("div", { class: "row spaced" },
+        h("a", { class: "btn", href: "#/quiz" }, "Take a quiz"))));
 }
 
 const lettersScreen = createLettersScreen({ h });

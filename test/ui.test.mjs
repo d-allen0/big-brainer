@@ -15,6 +15,10 @@ const env = await createEnv();
 const { h, db, css, letters, words, $, $$, text, until, go, audit, usedClasses, clickButton, hasButton, clickNext, hasLink, headsUps, left } = env;
 const { createLettersScreen } = await import(path.join(WWW, "letters-screen.js"));
 const { createVocabScreen } = await import(path.join(WWW, "vocab-screen.js"));
+const { createQuizScreen } = await import(path.join(WWW, "quiz-screen.js"));
+const quizLogic = await import(path.join(WWW, "quiz.js"));
+const vocabLogic = await import(path.join(WWW, "vocab.js"));
+const srsLogic = await import(path.join(WWW, "srs.js"));
 const alphabet = await import(path.join(WWW, "alphabet.js"));
 
 const byId = Object.fromEntries(letters.map((l) => [l.id, l]));
@@ -34,7 +38,7 @@ describe("Home", () => {
     assert.ok(!/Due for review/i.test(text()));
     assert.equal($$(".stat").length, 0, "home shows no counts");
     assert.deepEqual($$("#view a").map((a) => a.getAttribute("href")),
-      ["#/alphabet/practice", "#/alphabet", "#/cards/practice", "#/cards"]);
+      ["#/alphabet/practice", "#/alphabet", "#/cards/practice", "#/cards", "#/quiz"]);
   });
 
   it("an unknown route falls back to Home", async () => {
@@ -467,6 +471,353 @@ describe("Cards: pronunciation buttons (on demand only)", () => {
     $$(".choice")[0].click();
     await sleep(10);
     assert.ok(hasButton("Next", "Finish round"));
+  });
+});
+
+// ---------------------------------------------------------------------- Quiz
+
+describe("Quiz", () => {
+  const T0 = 1_700_000_000_000;
+  const parsedLetters = alphabet.parseLetters(env.lettersRaw);
+  const parsedWords = vocabLogic.parseVocab(env.vocabRaw);
+  const INS = quizLogic.INSTRUCTIONS;
+  const SPEED_WORDS = /\b(timer|seconds?|faster|quicker|slower|speed|hurry|time limit)\b/i;
+
+  // An in-memory store, so every quiz test starts from exactly the state it describes.
+  function memoryStore(initial = []) {
+    const cards = new Map(initial.map((c) => [c.id, structuredClone(c)]));
+    return {
+      cards,
+      getAllCards: async () => [...cards.values()].map((c) => structuredClone(c)),
+      addCardsIfMissing: async (list) => { let n = 0; for (const c of list) if (!cards.has(c.id)) { cards.set(c.id, structuredClone(c)); n++; } return n; },
+      putCard: async (c) => { cards.set(c.id, structuredClone(c)); },
+      getMeta: async (_k, f = null) => f,
+      setMeta: async () => {},
+    };
+  }
+  // Cards the learner has already answered once, so listening and typing questions are allowed.
+  const seenStore = () => memoryStore([
+    ...[1, 2].flatMap((g) => alphabet.cardsForGroup(parsedLetters, g, T0)),
+    ...[1, 2].flatMap((s) => vocabLogic.cardsForSet(parsedWords, s, T0)),
+  ].map((c) => ({ ...c, lastReviewed: T0 - 1000, reps: 1, interval: 1, due: T0 + 86_400_000 })));
+
+  function setup({ store = memoryStore(), voice = { ok: true }, seed = 1, tick = { now: 0 } } = {}) {
+    const spokenHere = [];
+    const speech = {
+      checkArabic: async () => voice,
+      speak: async (t) => { if (speech.failing) throw new Error("No Arabic voice"); spokenHere.push(t); },
+      stop: async () => {},
+      openVoiceInstall: async () => { speech.opened = true; },
+    };
+    const screen = createQuizScreen({
+      h, loadLetters: async () => parsedLetters, loadWords: async () => parsedWords, store, speech,
+      now: () => T0, clock: () => tick.now, rng: alphabet.seededRng(seed),
+    });
+    return { store, speech, spokenHere, tick, mount: async () => { document.querySelector("#view").replaceChildren(await screen({ parts: ["quiz"] })); await sleep(20); } };
+  }
+
+  const kindNow = () => ($(".type-input") ? "type" : $(".speak-big") ? "listen" : "choice");
+  const promptText = () => $(".prompt, .prompt-en")?.textContent;
+  const letterByPrompt = () => letters.find((l) => l.char === promptText().replaceAll(ZWJ, ""));
+
+  /** Find the right answer for the question on screen. For "listen" the speaker must be pressed first. */
+  async function solve(ctx, { wrong = false } = {}) {
+    const type = kindNow();
+    const ins = $(".card.center p.text").textContent;
+    let right;
+    let deck;
+    if (type === "type") {
+      deck = "vocab";
+      right = words.find((w) => w.ar === promptText()).en.split(",")[0];
+      const input = $(".type-input");
+      input.value = wrong ? "zzzzzz" : right;
+      $$("button").find((b) => b.textContent === "Check").click();
+    } else {
+      if (type === "listen") {
+        const before = ctx.spokenHere.length;
+        $(".speak-big").click();
+        await sleep(10);
+        assert.equal(ctx.spokenHere.length, before + 1, "the speaker speaks when pressed");
+        const said = ctx.spokenHere.at(-1);
+        const letter = letters.find((l) => l.name === said);
+        if (letter) { deck = "alphabet"; right = letter.char; } else { deck = "vocab"; right = words.find((w) => w.ar === said).en; }
+      } else if (ins === INS.ar2en) { deck = "vocab"; right = words.find((w) => w.ar === promptText()).en; }
+      else if (ins === INS.en2ar) { deck = "vocab"; right = words.find((w) => w.en === promptText()).ar; }
+      else {
+        deck = "alphabet";
+        const l = letterByPrompt();
+        right = ins === INS.sound ? l.sound : `${l.name} (${l.nameEn})`;
+      }
+      const choice = $$(".choice").find((b) => (wrong ? b.textContent !== right : b.textContent === right));
+      assert.ok(choice, `a choice to click (right answer "${right}")`);
+      choice.click();
+    }
+    await sleep(15);
+    return { type, deck, right };
+  }
+  const nextQuestion = () => clickNext();
+  const inRound = () => !text().includes("Round complete");
+  const cardsOf = (store, deck) => [...store.cards.values()].filter((c) => c.deck === deck);
+
+  it("Home links to the quiz; the quiz opens with a full round and a way out", async () => {
+    await go("#/", () => text().includes("Ready to practice"));
+    assert.ok(hasLink("#/quiz"));
+    assert.ok($$("a").some((a) => a.textContent === "Take a quiz"));
+    await go("#/quiz", () => $(".choice, .type-input, .speak-big"));
+    audit("quiz");
+    assert.equal($("#screen-title").textContent, "Quiz");
+    assert.equal(left(), 10);
+    assert.ok(hasLink("#/"), "Back to Home");
+    assert.ok(!SPEED_WORDS.test(text()), "no timer or speed wording");
+    await go("#/quiz/whatever", () => $(".choice, .type-input, .speak-big"));
+  });
+
+  it("a learner's first quiz is plain multiple choice, mixing letters and words", async () => {
+    const ctx = setup();
+    await ctx.mount();
+    audit("quiz first round");
+    assert.equal(left(), 10);
+    assert.equal(ctx.spokenHere.length, 0, "nothing is spoken before you press a button");
+    const decks = new Set();
+    let asked = 0;
+    while (inRound()) {
+      assert.equal(kindNow(), "choice", "nothing has been seen yet, so no listen or typing");
+      assert.equal($$(".choice").length, 4);
+      const { deck } = await solve(ctx);
+      decks.add(deck);
+      assert.ok(text().includes("Yes!"));
+      audit("quiz feedback");
+      asked++;
+      await nextQuestion();
+      assert.ok(asked < 40);
+    }
+    assert.equal(asked, 10);
+    assert.deepEqual([...decks].sort(), ["alphabet", "vocab"], "letters and words are mixed");
+    audit("quiz summary");
+    assert.ok(text().includes("10 of 10 answers were right."));
+    assert.ok(hasButton("Keep going"));
+    assert.equal(ctx.store.cards.size, 38, "seeded the suggested group and set");
+  });
+
+  it("a wrong answer is calm, shows the right one, costs nothing, and comes back in the round", async () => {
+    const ctx = setup();
+    await ctx.mount();
+    let asked = 0;
+    let firstWrongId = null;
+    while (inRound()) {
+      const wrong = asked === 1;
+      const before = left();
+      const { right } = await solve(ctx, { wrong });
+      if (wrong) {
+        assert.ok(text().includes("Not quite."));
+        assert.ok($(".choice.chosen") && $(".choice.correct"), "marks the chosen and the right answer");
+        assert.equal($(".choice.correct").textContent, right);
+        assert.ok(!/wrong|incorrect|fail/i.test($(".feedback").textContent));
+        audit("quiz wrong answer");
+        firstWrongId = [...ctx.store.cards.values()].find((c) => c.lapses === 1)?.id;
+        assert.ok(firstWrongId, "recorded as a lapse");
+        assert.ok(before >= 1);
+      }
+      asked++;
+      await nextQuestion();
+      assert.ok(asked < 40);
+    }
+    assert.equal(asked, 11, "10 questions plus the missed one coming back");
+    assert.ok(text().includes("10 of 11 answers were right."));
+    // The missed word has now been seen, so it may come back as a listening question, which the learner plays on purpose.
+    assert.ok(ctx.spokenHere.length >= 11, "each answer is spoken after answering");
+  });
+
+  it("listening questions: silent until the speaker is pressed, then answered like any other", async () => {
+    const ctx = setup({ store: seenStore(), seed: 3 });
+    await ctx.mount();
+    let sawLetter = false;
+    let sawWord = false;
+    for (let i = 0; i < 600 && !(sawLetter && sawWord); i++) {
+      if (!inRound()) { clickButton("Keep going"); await until(() => $(".choice, .type-input, .speak-big"), "next round"); continue; }
+      if (kindNow() === "listen") {
+        const spokenBefore = ctx.spokenHere.length;
+        assert.equal(spokenBefore, ctx.spokenHere.length);
+        assert.ok(!$(".prompt, .prompt-en"), "the answer is not shown while listening");
+        assert.equal($$(".choice").length, 4);
+        const { deck } = await solve(ctx);
+        if (deck === "alphabet") sawLetter = true; else sawWord = true;
+        assert.ok(text().includes("Yes!"));
+        audit("quiz listen");
+      } else {
+        await solve(ctx);
+      }
+      if (hasButton("Next", "Finish round")) await nextQuestion();
+    }
+    assert.ok(sawLetter && sawWord, "saw a listening question for a letter and for a word");
+  });
+
+  it("typing questions: gentle on empty, forgiving of one slip, honest about another word", async () => {
+    const ctx = setup({ store: seenStore(), seed: 5 });
+    await ctx.mount();
+    const seen = { right: false, typo: false, other: false, wrong: false, enter: false };
+    for (let i = 0; i < 200 && !Object.values(seen).every(Boolean); i++) {
+      if (!inRound()) { clickButton("Keep going"); await until(() => $(".choice, .type-input, .speak-big"), "next round"); continue; }
+      if (kindNow() === "type") {
+        const word = words.find((w) => w.ar === promptText());
+        assert.ok($(".prompt-row .speak-btn"), "the word can be heard");
+        assert.ok(!$$(".choice").length);
+        clickButton("Check");
+        await sleep(5);
+        assert.ok(text().includes("Type your answer, or choose Skip for now."));
+        assert.equal(left() >= 1, true);
+        assert.ok(!$(".type-input").readOnly, "an empty check does not use up the question");
+        const input = $(".type-input");
+        const submit = async (value, viaEnter = false) => {
+          input.value = value;
+          if (viaEnter) input.dispatchEvent(new window.KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+          else clickButton("Check");
+          await sleep(15);
+        };
+        const slipTarget = [...quizLogic.acceptedAnswers(word)].find((a) => a.length >= 6);
+        if (!seen.right) { await submit(word.en.split(",")[0]); assert.ok(text().includes("Yes!") && !text().includes("small slip")); seen.right = true; }
+        else if (!seen.enter) { await submit(word.en.split(",")[0], true); assert.ok(text().includes("Yes!")); seen.enter = true; }
+        else if (!seen.typo && slipTarget) {
+          await submit(slipTarget.slice(0, 2) + slipTarget.slice(3)); // one letter missing
+          assert.ok(text().includes("Yes! Just a small slip in spelling.")); seen.typo = true;
+        } else if (!seen.other) {
+          const other = words.find((w) => w.id !== word.id && w.en.split(",")[0] !== word.en.split(",")[0] && !w.en.includes(",") && !w.en.includes("("));
+          await submit(other.en);
+          assert.ok(text().includes("Not quite."));
+          assert.ok($$(".feedback p").some((p) => p.textContent.includes(`"${other.en}"`)), "says what the typed word really means");
+          seen.other = true;
+        } else { await submit("zzzzzz"); assert.ok(text().includes("Not quite.")); seen.wrong = true; }
+        assert.ok($(".type-input").readOnly, "locked after answering");
+        audit("quiz typed");
+      } else {
+        await solve(ctx);
+      }
+      if (hasButton("Next", "Finish round")) await nextQuestion();
+    }
+    assert.deepEqual(seen, { right: true, typo: true, other: true, wrong: true, enter: true });
+  });
+
+  it("answer speed silently picks the grade, and is never shown", async () => {
+    const run = async ({ ms, wrong = false, store, hidden = false }) => {
+      const tick = { now: 1000 };
+      const ctx = setup({ store, tick, seed: 11, voice: { ok: false } }); // no voice: letters are always plain choice
+      await ctx.mount();
+      // always the first question; make sure it is a plain choice question
+      assert.equal(kindNow(), "choice");
+      tick.now += ms;
+      if (hidden) {
+        Object.defineProperty(document, "hidden", { value: true, configurable: true });
+        document.dispatchEvent(new window.Event("visibilitychange"));
+        Object.defineProperty(document, "hidden", { value: false, configurable: true });
+      }
+      await solve(ctx, { wrong });
+      audit("quiz speed");
+      assert.ok(!SPEED_WORDS.test(text()), "no mention of speed anywhere");
+      const changed = [...ctx.store.cards.values()].filter((c) => c.lastReviewed !== T0 - 5 && c.lastReviewed != null);
+      assert.equal(changed.length, 1, "exactly the answered card changed");
+      return changed[0];
+    };
+    // Letter cards the learner has seen before, so speed counts; the quiz asks a letter first.
+    const seenOnly = () => memoryStore(alphabet.cardsForGroup(parsedLetters, 1, T0).map((c) => ({ ...c, lastReviewed: T0 - 5, reps: 1, interval: 1, due: T0 })));
+    const easy = await run({ ms: 800, store: seenOnly() });
+    assert.equal(easy.ease, 2.6, "quick and right: easy");
+    const good = await run({ ms: 6000, store: seenOnly() });
+    assert.equal(good.ease, 2.5, "normal pace: good");
+    const hard = await run({ ms: 20000, store: seenOnly() });
+    assert.equal(hard.ease, 2.36, "slow but right: hard");
+    assert.equal(hard.lapses, 0, "slow is never a lapse");
+    assert.ok(hard.reps === 2, "still counts as learned");
+    const paused = await run({ ms: 20000, store: seenOnly(), hidden: true });
+    assert.equal(paused.ease, 2.5, "leaving the app mid-question is not judged on speed");
+    const miss = await run({ ms: 100, wrong: true, store: seenOnly() });
+    assert.equal(miss.lapses, 1, "wrong is wrong, however quick");
+    // first view: speed is ignored
+    const firstTick = { now: 0 };
+    const ctx = setup({ tick: firstTick });
+    await ctx.mount();
+    firstTick.now = 100;
+    await solve(ctx);
+    const firstSeen = [...ctx.store.cards.values()].filter((c) => c.lastReviewed != null);
+    assert.equal(firstSeen.length, 1);
+    assert.equal(firstSeen[0].ease, 2.5, "a first view is graded good, not easy");
+  });
+
+  it("Skip leaves the card ungraded and at the end of the round", async () => {
+    const ctx = setup();
+    await ctx.mount();
+    const before = JSON.stringify([...ctx.store.cards.values()]);
+    clickButton("Skip for now");
+    await sleep(15);
+    assert.equal(left(), 10);
+    assert.equal(JSON.stringify([...ctx.store.cards.values()]), before, "skip does not touch progress");
+  });
+
+  it("with no Arabic voice: a plain note, no listening questions, typing still works", async () => {
+    const ctx = setup({ store: seenStore(), seed: 7, voice: { ok: false, code: "no-arabic-voice", message: "No Arabic voice is installed." } });
+    await ctx.mount();
+    assert.ok(text().includes("No Arabic voice is installed."));
+    assert.ok(hasButton("Open voice settings"));
+    clickButton("Open voice settings");
+    assert.equal(ctx.speech.opened, true);
+    let typed = 0;
+    for (let i = 0; i < 120; i++) {
+      if (!inRound()) { clickButton("Keep going"); await until(() => $(".choice, .type-input"), "next round"); continue; }
+      assert.ok(!$(".speak-big"), "no listening question without a voice");
+      if (kindNow() === "type") typed++;
+      await solve(ctx);
+      if (hasButton("Next", "Finish round")) await nextQuestion();
+    }
+    assert.ok(typed > 0, "typing questions still appear");
+  });
+
+  it("a failing speaker shows a plain message and never blocks answering", async () => {
+    const ctx = setup({ store: seenStore(), seed: 3 });
+    await ctx.mount();
+    ctx.speech.failing = true;
+    for (let i = 0; i < 80 && kindNow() !== "listen"; i++) {
+      await solve(ctx);
+      if (hasButton("Next", "Finish round")) await nextQuestion();
+      if (!inRound()) { clickButton("Keep going"); await until(() => $(".choice, .type-input, .speak-big"), "next round"); }
+    }
+    assert.equal(kindNow(), "listen");
+    $(".speak-big").click();
+    await sleep(10);
+    assert.equal($(".speak-msg").textContent, "No Arabic voice");
+    $$(".choice")[0].click();
+    await sleep(15);
+    assert.ok(hasButton("Next", "Finish round"), "can still answer and continue");
+  });
+
+  it("is never empty, even when every card is scheduled far ahead; Keep going always works", async () => {
+    const far = seenStore();
+    for (const c of far.cards.values()) c.due = T0 + 365 * 86_400_000;
+    const ctx = setup({ store: far });
+    await ctx.mount();
+    assert.equal(left(), 10);
+    for (let round = 0; round < 3; round++) {
+      let guard = 0;
+      while (inRound()) {
+        await solve(ctx);
+        await nextQuestion();
+        assert.ok(guard++ < 80);
+      }
+      audit("quiz summary");
+      clickButton("Keep going");
+      await until(() => $(".choice, .type-input, .speak-big"), "another round");
+      assert.ok(left() >= 1);
+    }
+  });
+
+  it("a failed save is reported and the quiz carries on; storage errors surface", async () => {
+    const store = memoryStore();
+    store.putCard = async () => { throw new Error("disk full"); };
+    const ctx = setup({ store });
+    await ctx.mount();
+    await solve(ctx);
+    assert.ok(text().includes("Could not save this answer: disk full"));
+    assert.ok(hasButton("Next", "Finish round"));
+    const broken = createQuizScreen({ h, loadLetters: async () => parsedLetters, loadWords: async () => parsedWords, store: { getAllCards: async () => { throw new Error("storage unavailable"); } }, speech: { checkArabic: async () => ({ ok: true }) } });
+    await assert.rejects(broken({ parts: ["quiz"] }), /storage unavailable/);
   });
 });
 
