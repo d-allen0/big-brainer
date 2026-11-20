@@ -41,13 +41,15 @@ Ask these in order. If any answer is "yes", redesign before writing code.
 - Avoid: due, overdue, locked, unlock, streak, daily, expires, deadline, behind, missed, penalty.
 - Tone: calm, encouraging, plain language.
 
-### 1.4 Known violations to fix
+### 1.4 Violations log
 
-These exist in the code today and must be removed when the pacing foundation task lands:
+**None open.** Fixed so far:
 
-- `www/srs.js`: `RELEARN_MS` makes a missed card wait 10 minutes. Missed cards should be eligible immediately and requeued a few questions later in the same session.
-- `www/alphabet.js`: `unlockedGroupCount` uses "unlock" semantics. Rename and reframe it as a *suggested path* ("recommended group"). It must never gate access.
-- `www/app.js`: the Home card says "Due for review" and shows a count. Change it to "Ready to practice".
+- Missed cards used to wait 10 minutes. They are now eligible immediately and come back a few questions later in the same round.
+- "Unlock" semantics for letter groups became a *suggested path* (`suggestedGroup`). Nothing is gated.
+- The Home card said "Due for review" with a count. It now says "Ready to practice" and shows no numbers.
+
+Add any new violation here the moment it is found, then fix it.
 
 ---
 
@@ -56,7 +58,7 @@ These exist in the code today and must be removed when the pacing foundation tas
 - **Language:** Modern Standard Arabic. **Goal:** read and understand the Quran. **Starting level:** total beginner (alphabet first).
 - **Methods:** spaced repetition (SM-2 variant), active recall, chunking (letters in small shape-based groups), interleaving, frequency-ordered vocabulary with a Quran-focused track, short grammar lessons ending in a quiz.
 - **Audio:** on-device text-to-speech only. Arabic voice quality varies by phone and handling of fully vowelled Quranic text can be uneven. Always handle the "no Arabic voice installed" case clearly.
-- **Arabic text:** show beginner material with vowel marks (tashkeel). Render Arabic with the `.ar` class (RTL, a font stack with good tashkeel support). Joined letter forms use a zero-width joiner (`‍`), never presentation-form code points.
+- **Arabic text:** show beginner material with vowel marks (tashkeel). Render Arabic with the `.ar` class (RTL, a font stack with good tashkeel support). Joined letter forms use a zero-width joiner (U+200D, defined in `alphabet.js` as `String.fromCharCode(0x200d)`), never presentation-form code points.
 - **Transliteration:** macron vowels (ā ī ū) and ḥ ṣ ḍ ṭ ẓ ʿ ʾ. The standard letter names must stay unique (ح is ḥāʾ, ه is hāʾ).
 - **Accuracy rules:**
   - **Quranic text must come from a verified source. Never type or recall it from memory.**
@@ -70,12 +72,15 @@ These exist in the code today and must be removed when the pacing foundation tas
 - **Platform:** Capacitor 8 wrapping a plain web app. Needs Node 22 and JDK 21.
 - **Web app:** vanilla ES modules in `www/`, no bundler. `index.html` + `app.js` (hash router and shell) + `styles.css`.
 - **Modules:**
-  - `db.js`: IndexedDB wrapper (`cards` and `meta` stores).
-  - `srs.js`: pure scheduling functions. No I/O, no clock; callers pass `now`.
-  - `alphabet.js`: pure logic for letters, cards, suggested path and question building.
+  - `db.js`: IndexedDB wrapper (`cards` and `meta` stores). `addCardsIfMissing` seeds cards atomically and never overwrites existing progress; use it instead of `putCards` for seeding.
+  - `srs.js`: pure scheduling functions. No I/O, no clock; callers pass `now`. `due` only orders practice (`practiceOrder`: ready cards first, then weakest first, never empty); `requeueAfter` brings missed items back within a round.
+  - `alphabet.js`: pure logic for letters, cards, the suggested path (`suggestedGroup`, `groupMastery`, `farAhead`), question building and `mistakeNote`.
   - `tts.js`: native Android TTS first, Web Speech fallback.
   - `letters.json`: letter data in teaching order.
+  - `letters-screen.js`: the Letters UI (grid, lesson, practice). Built with `createLettersScreen({ h, ...injectables })` so tests can swap storage, speech and the clock.
 - **Security and offline:** the CSP in `index.html` forbids inline scripts and styles and any external request. Keep it that way. Build DOM with the `h()` helper, not `innerHTML` with dynamic content.
+- **Routing:** hash routes. The first segment picks the screen; screens receive `{ parts, setTitle }`. Letters sub-routes: `#/alphabet`, `#/alphabet/letter/<id>`, `#/alphabet/practice`, `#/alphabet/practice/group/<n>`, `#/alphabet/practice/letter/<id>`. Unknown ids fall back to the grid. Hardware Back works because every view is a hash route.
+- **Practice rules in code:** rounds of 10; a correct answer grades "good", an answer that is not right grades "again" and the card returns 3 questions later; Skip moves a card to the end without grading; nothing advances on a timer.
 - **Pure logic stays pure.** Keep logic (scheduling, question building, validation) free of the DOM and storage so it can be tested in Node.
 - **Android project:** `android/` is generated fresh in CI and is not committed.
 
@@ -110,22 +115,26 @@ Also:
 - Run the design checklist in 1.2 as part of describing any approach.
 - Run a syntax check and real tests before committing. Report plainly what was and was not verified, including anything that could not be tested without a device.
 - Keep replies short and phone-friendly. The owner mostly reads on a phone.
+- **Never paste invisible or look-alike characters literally** (zero-width joiners, directional marks, special spaces). Write them with explicit code such as `String.fromCharCode(0x200d)` and verify the file bytes. This slipped through once and made a source file fragile.
+- **Test the UI for real:** run the actual `www/` app in jsdom with `fake-indexeddb` and drive it like a learner. Include the pacing checks: no forbidden words in any screen, practice never empty, nothing blocked, no inline `style` attributes (CSP), every CSS class used is defined.
 
 ---
 
 ## 5. Roadmap and status
 
-Done: app shell, IndexedDB storage, SM-2 engine, text-to-speech wrapper, alphabet data and logic, signing and CI.
+Done: app shell, IndexedDB storage, SM-2 engine, text-to-speech wrapper, alphabet data and logic, pacing foundation, Letters screen (grid, lessons, practice), signing and CI.
 
 Next, in order:
-1. **Pacing foundation** (`srs.js`, `alphabet.js`): remove the violations in 1.4, add a weakest-first practice order, add a "suggested path" function and a "far ahead" check for the gentle heads-up.
-2. **Letters screen** (`letters-screen.js`, `app.js`, `styles.css`): grid, lesson view with the four forms and audio, practice with explain-and-move-on feedback, Home card reworded.
-3. Vocab flashcards, quiz engine, grammar lessons, Quran reading track, handwriting canvas.
+1. Vocab flashcards (frequency-ordered, with a Quran-focused track). Follow the design checklist in 1.2.
+2. Quiz engine (answer-speed grading is allowed here, but never time pressure or timers shown to the learner).
+3. Grammar lessons, Quran reading track, handwriting canvas.
 
 ### Known gaps
 
 - Example words and hints in `letters.json` are unreviewed by a native speaker.
-- Tests exist only as throwaway scripts. Add a `test/` folder using `node:test`.
+- Nothing has been checked on a real device yet: joined-letter rendering and Arabic fonts in the Android WebView, and text-to-speech output. UI logic is tested in jsdom only.
+- Tests exist only as throwaway scripts outside the repo. Add a `test/` folder using `node:test` (the pacing, alphabet, text-to-speech and UI checks are good starting points).
 - No `.gitignore` or `package-lock.json` yet.
 - GitHub Actions versions show Node deprecation warnings (cosmetic).
-- Text-to-speech and joined-letter rendering have not been checked on a real device.
+- Practice grades only right or wrong. Finer grading (hard, easy) waits for the quiz engine.
+- `db.getDueCards` is unused now. Remove it if it stays unused, so nobody builds a "due count" on it.
