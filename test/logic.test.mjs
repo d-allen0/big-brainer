@@ -689,6 +689,159 @@ describe("tts", () => {
   });
 });
 
+describe("tts: the learner's voice and speed", () => {
+  const rejectsCode = (p, code) =>
+    assert.rejects(p, (e) => e instanceof tts.TTSError && e.code === code, `expected ${code}`);
+  const VOICES = [
+    { voiceURI: "en-us-x-1", name: "English", lang: "en-US", localService: true },
+    { voiceURI: "ar-net", name: "Arabic network", lang: "ar-SA", localService: false },
+    { voiceURI: "ar-local-b", name: "B voice", lang: "ar-EG", localService: true },
+    { voiceURI: "ar-local-a", name: "A voice", lang: "ar-SA", localService: true },
+  ];
+  const plugin = (over = {}) => ({
+    calls: [],
+    async isLanguageSupported({ lang }) { return { supported: lang === "ar" }; },
+    async getSupportedVoices() { if (over.listFails) throw new Error("no list"); return { voices: over.voices ?? VOICES }; },
+    async speak(o) { this.calls.push(o); },
+    async stop() {},
+  });
+  const nativeG = (p) => ({ Capacitor: { Plugins: { TextToSpeech: p } } });
+  class FakeUtter { constructor(t) { this.text = t; } }
+  const webG = (voices) => {
+    const synth = {
+      spoken: [], getVoices: () => voices, cancel() {}, addEventListener() {}, removeEventListener() {},
+      speak(u) { this.spoken.push(u); queueMicrotask(() => u.onend()); },
+    };
+    return { speechSynthesis: synth, SpeechSynthesisUtterance: FakeUtter, synth };
+  };
+  const reset = () => tts.setPreferences(null);
+
+  it("saved preferences are cleaned: anything unusable falls back to the defaults", () => {
+    const defaults = { voiceId: null, speed: "normal" };
+    for (const bad of [null, undefined, 5, "x", [], {}, { voiceId: 7, speed: 3 }, { voiceId: "", speed: "warp" }, { voiceId: "x".repeat(301) }]) {
+      assert.deepEqual(tts.parsePreferences(bad), defaults, JSON.stringify(bad));
+    }
+    assert.deepEqual(tts.parsePreferences({ voiceId: "ar-local-a", speed: "slow" }), { voiceId: "ar-local-a", speed: "slow" });
+    assert.deepEqual(tts.parsePreferences({ voiceId: "a", speed: "toString" }), { voiceId: "a", speed: "normal" }, "inherited keys are not speeds");
+  });
+
+  it("there are three speeds, slow below normal below fast, and normal is the old default", () => {
+    assert.ok(tts.SPEEDS.slow < tts.SPEEDS.normal && tts.SPEEDS.normal < tts.SPEEDS.fast);
+    assert.equal(tts.SPEEDS.normal, 0.8);
+    assert.equal(tts.DEFAULT_SPEED, "normal");
+    assert.deepEqual(Object.keys(tts.SPEEDS), ["slow", "normal", "fast"]);
+    assert.ok(Object.isFrozen(tts.SPEEDS));
+  });
+
+  it("set and get preferences: returns copies, cleans input, and null resets", () => {
+    try {
+      assert.deepEqual(tts.getPreferences(), { voiceId: null, speed: "normal" });
+      assert.deepEqual(tts.setPreferences({ voiceId: "v", speed: "fast", extra: 1 }), { voiceId: "v", speed: "fast" });
+      const copy = tts.getPreferences();
+      copy.speed = "slow";
+      assert.equal(tts.getPreferences().speed, "fast", "callers cannot change the saved value by editing the copy");
+      assert.deepEqual(tts.setPreferences({ speed: "nope" }), { voiceId: null, speed: "normal" });
+    } finally { reset(); }
+  });
+
+  it("lists only Arabic voices, offline ones first, with stable ids", async () => {
+    const r = await tts.listVoices(nativeG(plugin()));
+    assert.equal(r.backend, "native");
+    assert.deepEqual(r.voices.map((v) => v.id), ["ar-local-a", "ar-local-b", "ar-net"]);
+    assert.deepEqual(r.voices.map((v) => v.local), [true, true, false]);
+    assert.deepEqual(r.voices[0], { id: "ar-local-a", name: "A voice", lang: "ar-SA", local: true });
+    const odd = [{ name: "No uri", lang: "ar", localService: true }, { voiceURI: "", name: "", lang: "ar" }, { voiceURI: "arc", name: "Aramaic", lang: "arc-XX" }];
+    assert.deepEqual((await tts.listVoices(nativeG(plugin({ voices: odd })))).voices.map((v) => v.id), ["No uri"], "falls back to the name; skips voices with no id and look-alike codes");
+  });
+
+  it("listing never fails: no engine, no list function, or a list that throws all give an empty list", async () => {
+    assert.deepEqual(await tts.listVoices({}), { backend: "none", voices: [] });
+    assert.deepEqual((await tts.listVoices(nativeG(plugin({ listFails: true })))).voices, []);
+    const noList = plugin(); delete noList.getSupportedVoices;
+    assert.deepEqual((await tts.listVoices(nativeG(noList))).voices, []);
+    assert.deepEqual((await tts.listVoices(nativeG(plugin({ voices: [] })))).voices, []);
+    assert.deepEqual((await tts.listVoices(nativeG({ ...plugin(), getSupportedVoices: async () => null }))).voices, []);
+  });
+
+  it("lists voices from the browser engine too", async () => {
+    const r = await tts.listVoices(webG(VOICES.map((v) => ({ ...v, voiceURI: v.voiceURI }))));
+    assert.equal(r.backend, "web");
+    assert.deepEqual(r.voices.map((v) => v.id), ["ar-local-a", "ar-local-b", "ar-net"]);
+  });
+
+  it("chooseVoice finds a voice by id and returns null for anything else", () => {
+    const list = [{ id: "a" }, { id: "b" }];
+    assert.equal(tts.chooseVoice(list, "b"), list[1]);
+    for (const bad of ["zzz", "", null, undefined, 3]) assert.equal(tts.chooseVoice(list, bad), null);
+    assert.equal(tts.chooseVoice([], "a"), null);
+  });
+
+  it("native speak sends no voice by default, so the engine's automatic choice is kept", async () => {
+    reset();
+    const p = plugin();
+    await tts.speak("ب", { g: nativeG(p) });
+    assert.deepEqual(p.calls[0], { text: "ب", lang: "ar", rate: 0.8, queueStrategy: 0 });
+  });
+
+  it("native speak sends the chosen voice's position in the full list", async () => {
+    const p = plugin();
+    await tts.speak("ب", { voiceId: "ar-local-b", g: nativeG(p) });
+    assert.equal(p.calls[0].voice, 2, "index counts the non-Arabic voices before it");
+    await tts.speak("ب", { voiceId: "ar-net", g: nativeG(p) });
+    assert.equal(p.calls[1].voice, 1);
+    const shuffled = plugin({ voices: [VOICES[3], VOICES[0], VOICES[2], VOICES[1]] });
+    await tts.speak("ب", { voiceId: "ar-local-b", g: nativeG(shuffled) });
+    assert.equal(shuffled.calls[0].voice, 2, "found by id even when the order changes");
+  });
+
+  it("a chosen voice that is gone, not Arabic, or unlistable quietly falls back to automatic", async () => {
+    for (const [voiceId, over] of [["uninstalled", {}], ["en-us-x-1", {}], ["ar-net", { listFails: true }]]) {
+      const p = plugin(over);
+      await tts.speak("ب", { voiceId, g: nativeG(p) });
+      assert.ok(!("voice" in p.calls[0]), `${voiceId}: no voice sent`);
+      assert.equal(p.calls[0].text, "ب", "and it still speaks");
+    }
+    const noList = plugin(); delete noList.getSupportedVoices;
+    await tts.speak("ب", { voiceId: "ar-net", g: nativeG(noList) });
+    assert.ok(!("voice" in noList.calls[0]));
+  });
+
+  it("the saved speed and voice are used by every speak, and options still override them", async () => {
+    try {
+      tts.setPreferences({ voiceId: "ar-local-a", speed: "slow" });
+      const p = plugin();
+      await tts.speak("ب", { g: nativeG(p) });
+      assert.equal(p.calls[0].rate, tts.SPEEDS.slow);
+      assert.equal(p.calls[0].voice, 3);
+      await tts.speak("ب", { rate: 1.5, voiceId: "ar-local-b", g: nativeG(p) });
+      assert.equal(p.calls[1].rate, 1.5);
+      assert.equal(p.calls[1].voice, 2);
+      await tts.speak("ب", { voiceId: null, g: nativeG(p) });
+      assert.ok(!("voice" in p.calls[2]), "voiceId: null means automatic");
+      tts.setPreferences({ speed: "fast" });
+      await tts.speak("ب", { g: nativeG(p) });
+      assert.equal(p.calls[3].rate, tts.SPEEDS.fast);
+      assert.ok(!("voice" in p.calls[3]));
+    } finally { reset(); }
+  });
+
+  it("browser speak uses the chosen voice and speed, and falls back when the voice is gone", async () => {
+    try {
+      const voices = VOICES.slice(1).map((v) => ({ ...v }));
+      const g = webG(voices);
+      tts.setPreferences({ voiceId: "ar-net", speed: "slow" });
+      await tts.speak("ب", { g });
+      assert.equal(g.synth.spoken[0].voice.voiceURI, "ar-net");
+      assert.equal(g.synth.spoken[0].rate, tts.SPEEDS.slow);
+      tts.setPreferences({ voiceId: "uninstalled" });
+      await tts.speak("ب", { g });
+      assert.equal(g.synth.spoken[1].voice.voiceURI, "ar-local-a", "automatic: the best available voice");
+      assert.equal(g.synth.spoken[1].voice.voiceURI, (await tts.listVoices(g)).voices[0].id, "the first listed voice is the automatic one");
+      await rejectsCode(tts.speak("ب", { voiceId: "ar-net", g: webG([{ lang: "en-US", voiceURI: "e", name: "e" }]) }), "no-arabic-voice");
+    } finally { reset(); }
+  });
+});
+
 // ------------------------------------------------------------------- storage
 
 describe("db: the learner's progress is never overwritten", () => {

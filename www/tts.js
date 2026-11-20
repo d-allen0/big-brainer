@@ -7,6 +7,10 @@ const ARABIC_CANDIDATES = ["ar-SA", "ar", "ar-001", "ar-EG"];
 const MAX_TEXT_LENGTH = 500;
 const DEFAULT_RATE = 0.8; // slightly slow, better for learners
 
+/** The speeds the learner can pick. "normal" is the long-standing default (slightly slow). */
+export const SPEEDS = Object.freeze({ slow: 0.6, normal: 0.8, fast: 1.0 });
+export const DEFAULT_SPEED = "normal";
+
 export class TTSError extends Error {
   /** code: "bad-input" | "no-backend" | "no-arabic-voice" | "timeout" | "engine-error" */
   constructor(code, message) {
@@ -14,6 +18,25 @@ export class TTSError extends Error {
     this.name = "TTSError";
     this.code = code;
   }
+}
+
+// ---- the learner's voice choices (kept in memory here; the app saves them with the progress store) ----
+
+/** Clean up saved preferences. Anything unusable falls back to the defaults. Never throws. */
+export function parsePreferences(raw) {
+  const voiceId = typeof raw?.voiceId === "string" && raw.voiceId !== "" && raw.voiceId.length <= 300 ? raw.voiceId : null;
+  const speed = typeof raw?.speed === "string" && Object.hasOwn(SPEEDS, raw.speed) ? raw.speed : DEFAULT_SPEED;
+  return { voiceId, speed };
+}
+
+let preferences = parsePreferences(null);
+
+export const getPreferences = () => ({ ...preferences });
+
+/** Set the voice and speed used by every later speak(). Returns the cleaned preferences. */
+export function setPreferences(raw) {
+  preferences = parsePreferences(raw);
+  return getPreferences();
 }
 
 /** Pick the best available speech backend. */
@@ -39,6 +62,44 @@ async function findNativeArabic(plugin) {
   return null;
 }
 
+const isArabicLang = (lang) => /^ar([-_]|$)/i.test(String(lang ?? ""));
+const voiceKey = (v) => String(v?.voiceURI || v?.name || "");
+
+/** Pure: the voice with this id, or null (null means "use the automatic choice"). */
+export function chooseVoice(voices, id) {
+  if (typeof id !== "string" || id === "") return null;
+  return voices.find((v) => v.id === id) ?? null;
+}
+
+/**
+ * List the Arabic voices the device offers, as [{ id, name, lang, local }].
+ * Resolves (never rejects) with { backend, voices }. Voices that work without internet come first.
+ */
+export async function listVoices(g = globalThis) {
+  const backend = detectBackend(g);
+  if (backend.kind === "none") return { backend: "none", voices: [] };
+  try {
+    let raw = [];
+    if (backend.kind === "native") {
+      if (typeof backend.plugin.getSupportedVoices === "function") raw = (await backend.plugin.getSupportedVoices())?.voices ?? [];
+    } else {
+      raw = await loadWebVoices(backend.synth);
+    }
+    const voices = raw
+      .filter((v) => isArabicLang(v.lang) && voiceKey(v) !== "")
+      .map((v) => ({ id: voiceKey(v), name: String(v.name ?? v.voiceURI), lang: String(v.lang), local: v.localService !== false }));
+    // Same preference as the automatic choice: offline first, then the language order above, then by name.
+    const langRank = (v) => {
+      const i = ARABIC_CANDIDATES.map((c) => c.toLowerCase()).indexOf(v.lang.replace("_", "-").toLowerCase());
+      return i === -1 ? ARABIC_CANDIDATES.length : i;
+    };
+    voices.sort((a, b) => Number(b.local) - Number(a.local) || langRank(a) - langRank(b) || a.name.localeCompare(b.name));
+    return { backend: backend.kind, voices };
+  } catch {
+    return { backend: backend.kind, voices: [] };
+  }
+}
+
 /** Web voices load asynchronously; wait briefly for them. */
 function loadWebVoices(synth, waitMs = 1500) {
   return new Promise((resolve) => {
@@ -54,10 +115,12 @@ function loadWebVoices(synth, waitMs = 1500) {
   });
 }
 
-async function findWebArabic(synth) {
+async function findWebArabic(synth, voiceId = null) {
   const voices = await loadWebVoices(synth);
-  const arabic = voices.filter((v) => /^ar([-_]|$)/i.test(v.lang));
+  const arabic = voices.filter((v) => isArabicLang(v.lang));
   if (arabic.length === 0) return null;
+  const wanted = typeof voiceId === "string" && voiceId !== "" ? arabic.find((v) => voiceKey(v) === voiceId) : null;
+  if (wanted) return wanted;
   const preferred = ARABIC_CANDIDATES.map((c) => c.toLowerCase());
   arabic.sort((a, b) => rank(a) - rank(b));
   return arabic[0];
@@ -118,9 +181,11 @@ function clampRate(rate) {
 
 /**
  * Speak Arabic text. Cancels anything already playing.
+ * Uses the learner's chosen voice and speed unless `voiceId` / `rate` are given.
+ * A chosen voice that is no longer installed quietly falls back to the automatic voice.
  * Resolves when speech ends; rejects with TTSError.
  */
-export async function speak(text, { rate = DEFAULT_RATE, g = globalThis } = {}) {
+export async function speak(text, { rate = SPEEDS[preferences.speed], voiceId = preferences.voiceId, g = globalThis } = {}) {
   const clean = validateText(text);
   const backend = detectBackend(g);
   if (backend.kind === "none") throw new TTSError("no-backend", "This device has no speech engine.");
@@ -128,17 +193,32 @@ export async function speak(text, { rate = DEFAULT_RATE, g = globalThis } = {}) 
   if (backend.kind === "native") {
     const lang = await findNativeArabic(backend.plugin);
     if (!lang) throw new TTSError("no-arabic-voice", noArabic("native").message);
+    const options = { text: clean, lang, rate: clampRate(rate), queueStrategy: 0 };
+    const index = await nativeVoiceIndex(backend.plugin, voiceId);
+    if (index !== null) options.voice = index;
     try {
-      await backend.plugin.speak({ text: clean, lang, rate: clampRate(rate), queueStrategy: 0 });
+      await backend.plugin.speak(options);
     } catch (err) {
       throw new TTSError("engine-error", String(err?.message ?? err));
     }
     return;
   }
 
-  const voice = await findWebArabic(backend.synth);
+  const voice = await findWebArabic(backend.synth, voiceId);
   if (!voice) throw new TTSError("no-arabic-voice", noArabic("web").message);
   return speakWeb(backend.synth, g, clean, voice, clampRate(rate));
+}
+
+/** Position of the voice with this id in the plugin's full voice list, or null (automatic). Never throws. */
+async function nativeVoiceIndex(plugin, voiceId) {
+  if (typeof voiceId !== "string" || voiceId === "" || typeof plugin.getSupportedVoices !== "function") return null;
+  try {
+    const all = (await plugin.getSupportedVoices())?.voices ?? [];
+    const i = all.findIndex((v) => isArabicLang(v.lang) && voiceKey(v) === voiceId);
+    return i >= 0 ? i : null;
+  } catch {
+    return null;
+  }
 }
 
 function speakWeb(synth, g, text, voice, rate) {
