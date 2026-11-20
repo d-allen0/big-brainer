@@ -269,6 +269,63 @@ for (const { w, h } of SIZES) {
         }
       });
     });
+
+    describe(`Phrases at ${tag}`, { skip }, () => {
+      it("the toggle and phrase overview fit sideways, with the toggle visible at the top", async () => {
+        const { ctx, page, errors } = await newPage(w, h, withVoice);
+        try {
+          await page.goto(`${base}#/cards/phrases`);
+          await page.waitForSelector(".phrase");
+          await page.waitForTimeout(150);
+          const m = await measure(page);
+          assert.ok(m.docW <= m.vw, `no horizontal overflow (${m.docW} vs ${m.vw})`);
+          const t = await page.evaluate(() => {
+            const r = document.querySelector(".segmented").getBoundingClientRect();
+            const links = [...document.querySelectorAll(".segmented a")].map((a) => a.getBoundingClientRect().height);
+            return { top: r.top, bottom: r.bottom, links };
+          });
+          assert.ok(t.top >= m.topBottom - 0.5 && t.bottom <= m.tabTop, "the toggle is on screen without scrolling");
+          assert.ok(t.links.every((x) => x >= 44), "each toggle button is at least 44px tall");
+          assert.equal(await page.locator(".phrase").count(), 40);
+          assert.deepEqual(errors, []);
+        } finally {
+          await ctx.close();
+        }
+      });
+
+      it("both directions fit in every phrase set; Next is always visible", async () => {
+        const { ctx, page, errors } = await newPage(w, h, withVoice);
+        try {
+          const seen = new Set();
+          for (const set of [1, 2, 3, 4]) {
+            await page.goto(`${base}#/cards/phrases/practice/set/${set}`);
+            await page.waitForSelector(".choice");
+            await page.waitForTimeout(100);
+            for (let i = 0; i < 14; i++) {
+              if (await page.$("button:text-is('Keep going')")) break;
+              const kind = (await page.$(".prompt-en")) ? "en2ar" : "ar2en";
+              let m = await measure(page);
+              assert.ok(m.choices.every((c) => c.bottom <= m.tabTop + 0.5), `set ${set} ${kind}: all 4 answers above the tab bar`);
+              assert.equal(new Set(m.choices.map((c) => c.left)).size, SHORT(h) ? 2 : 1, `set ${set} ${kind}: column layout`);
+              if (withVoice) assert.ok(m.docH <= m.vh + 1, `set ${set} ${kind}: no scrolling (doc ${m.docH} vs ${m.vh})`);
+              await (await page.$$(".choice"))[0].click(); // usually wrong: the longest feedback
+              await page.waitForTimeout(40);
+              m = await measure(page);
+              assert.ok(inView(m, m.next), `set ${set} ${kind}: Next visible after answering`);
+              if (withVoice) assert.ok(m.docH <= m.vh + 1, `set ${set} ${kind}: no scrolling after answering (doc ${m.docH} vs ${m.vh})`);
+              assert.ok(m.docW <= m.vw, "no horizontal overflow");
+              seen.add(kind);
+              await page.locator("button:text-is('Next'), button:text-is('Finish round')").first().click();
+              await page.waitForTimeout(30);
+            }
+          }
+          assert.equal(seen.size, 2, `saw both directions (${[...seen]})`);
+          assert.deepEqual(errors, []);
+        } finally {
+          await ctx.close();
+        }
+      });
+    });
   }
 }
 
