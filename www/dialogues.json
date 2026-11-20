@@ -1,0 +1,264 @@
+{
+ "note": "Six short two-person conversations, easiest first, reusing words and phrases from Cards. Speaker a is Ahmad (a man), speaker b is Layla (a woman), so lines addressed to Layla use feminine forms. Written by Claude; unreviewed by a fluent speaker.",
+ "reviewed": false,
+ "dialogues": [
+  {
+   "id": "greeting",
+   "title": "Saying hello",
+   "lines": [
+    {
+     "who": "a",
+     "ar": "السَّلَامُ عَلَيْكُمْ.",
+     "tr": "as-salāmu ʿalaykum.",
+     "en": "Peace be upon you (hello)."
+    },
+    {
+     "who": "b",
+     "ar": "وَعَلَيْكُمُ السَّلَامُ.",
+     "tr": "wa ʿalaykumu s-salām.",
+     "en": "And peace be upon you."
+    },
+    {
+     "who": "a",
+     "ar": "كَيْفَ حَالُكِ؟",
+     "tr": "kayfa ḥāluki?",
+     "en": "How are you?"
+    },
+    {
+     "who": "b",
+     "ar": "أَنَا بِخَيْرٍ، الْحَمْدُ لِلَّهِ. وَأَنْتَ؟",
+     "tr": "ana bi-khayr, al-ḥamdu lillāh. wa-anta?",
+     "en": "I am well, thank God. And you?"
+    },
+    {
+     "who": "a",
+     "ar": "أَنَا بِخَيْرٍ، شُكْرًا.",
+     "tr": "ana bi-khayr, shukran.",
+     "en": "I am well, thank you."
+    }
+   ],
+   "speakers": {
+    "a": "Ahmad",
+    "b": "Layla"
+   }
+  },
+  {
+   "id": "names",
+   "title": "Meeting someone",
+   "lines": [
+    {
+     "who": "a",
+     "ar": "مَرْحَبًا! مَا اسْمُكِ؟",
+     "tr": "marḥaban! mā ismuki?",
+     "en": "Hello! What is your name?"
+    },
+    {
+     "who": "b",
+     "ar": "اِسْمِي لَيْلَى. وَمَا اسْمُكَ؟",
+     "tr": "ismī laylā. wa-mā ismuka?",
+     "en": "My name is Layla. And what is your name?"
+    },
+    {
+     "who": "a",
+     "ar": "اِسْمِي أَحْمَدُ.",
+     "tr": "ismī aḥmad.",
+     "en": "My name is Ahmad."
+    },
+    {
+     "who": "b",
+     "ar": "أَهْلًا وَسَهْلًا يَا أَحْمَدُ.",
+     "tr": "ahlan wa sahlan yā aḥmad.",
+     "en": "Welcome, Ahmad."
+    },
+    {
+     "who": "a",
+     "ar": "شُكْرًا يَا لَيْلَى.",
+     "tr": "shukran yā laylā.",
+     "en": "Thank you, Layla."
+    }
+   ],
+   "speakers": {
+    "a": "Ahmad",
+    "b": "Layla"
+   }
+  },
+  {
+   "id": "shop",
+   "title": "In a shop",
+   "lines": [
+    {
+     "who": "a",
+     "ar": "مِنْ فَضْلِكِ، بِكَمْ هَذَا؟",
+     "tr": "min faḍliki, bi-kam hādhā?",
+     "en": "Please, how much is this?"
+    },
+    {
+     "who": "b",
+     "ar": "خَمْسَةُ دَنَانِيرَ.",
+     "tr": "khamsatu danānīra.",
+     "en": "Five dinars."
+    },
+    {
+     "who": "a",
+     "ar": "شُكْرًا. أُرِيدُ هَذَا.",
+     "tr": "shukran. urīdu hādhā.",
+     "en": "Thank you. I want this."
+    },
+    {
+     "who": "b",
+     "ar": "تَفَضَّلْ.",
+     "tr": "tafaḍḍal.",
+     "en": "Here you are."
+    },
+    {
+     "who": "a",
+     "ar": "شُكْرًا جَزِيلًا.",
+     "tr": "shukran jazīlan.",
+     "en": "Thank you very much."
+    },
+    {
+     "who": "b",
+     "ar": "عَفْوًا.",
+     "tr": "ʿafwan.",
+     "en": "You're welcome."
+    }
+   ],
+   "speakers": {
+    "a": "Ahmad",
+    "b": "Layla"
+   }
+  },
+  {
+   "id": "directions",
+   "title": "Asking the way",
+   "lines": [
+    {
+     "who": "a",
+     "ar": "اِسْمَحِي لِي، أَيْنَ الْمَحَطَّةُ؟",
+     "tr": "ismaḥī lī, ayna l-maḥaṭṭah?",
+     "en": "Excuse me, where is the station?"
+    },
+    {
+     "who": "b",
+     "ar": "الْمَحَطَّةُ هُنَاكَ.",
+     "tr": "al-maḥaṭṭatu hunāka.",
+     "en": "The station is over there."
+    },
+    {
+     "who": "a",
+     "ar": "هَلْ هِيَ قَرِيبَةٌ؟",
+     "tr": "hal hiya qarībah?",
+     "en": "Is it near?"
+    },
+    {
+     "who": "b",
+     "ar": "نَعَمْ، هِيَ قَرِيبَةٌ.",
+     "tr": "naʿam, hiya qarībah.",
+     "en": "Yes, it is near."
+    },
+    {
+     "who": "a",
+     "ar": "شُكْرًا.",
+     "tr": "shukran.",
+     "en": "Thank you."
+    }
+   ],
+   "speakers": {
+    "a": "Ahmad",
+    "b": "Layla"
+   }
+  },
+  {
+   "id": "family",
+   "title": "Family photos",
+   "lines": [
+    {
+     "who": "a",
+     "ar": "مَنْ هَذَا؟",
+     "tr": "man hādhā?",
+     "en": "Who is this?"
+    },
+    {
+     "who": "b",
+     "ar": "هَذَا أَخِي.",
+     "tr": "hādhā akhī.",
+     "en": "This is my brother."
+    },
+    {
+     "who": "a",
+     "ar": "وَمَنْ هَذِهِ؟",
+     "tr": "wa-man hādhihi?",
+     "en": "And who is this?"
+    },
+    {
+     "who": "b",
+     "ar": "هَذِهِ أُخْتِي.",
+     "tr": "hādhihi ukhtī.",
+     "en": "This is my sister."
+    },
+    {
+     "who": "a",
+     "ar": "عَائِلَةٌ جَمِيلَةٌ.",
+     "tr": "ʿāʾilah jamīlah.",
+     "en": "A beautiful family."
+    },
+    {
+     "who": "b",
+     "ar": "شُكْرًا.",
+     "tr": "shukran.",
+     "en": "Thank you."
+    }
+   ],
+   "speakers": {
+    "a": "Ahmad",
+    "b": "Layla"
+   }
+  },
+  {
+   "id": "cafe",
+   "title": "At a café",
+   "lines": [
+    {
+     "who": "a",
+     "ar": "مَسَاءُ الْخَيْرِ.",
+     "tr": "masāʾu l-khayr.",
+     "en": "Good evening."
+    },
+    {
+     "who": "b",
+     "ar": "مَسَاءُ النُّورِ.",
+     "tr": "masāʾu n-nūr.",
+     "en": "Good evening (reply)."
+    },
+    {
+     "who": "a",
+     "ar": "أُرِيدُ قَهْوَةً مِنْ فَضْلِكِ.",
+     "tr": "urīdu qahwatan min faḍliki.",
+     "en": "I want coffee, please."
+    },
+    {
+     "who": "b",
+     "ar": "هَلْ تُرِيدُ سُكَّرًا؟",
+     "tr": "hal turīdu sukkaran?",
+     "en": "Do you want sugar?"
+    },
+    {
+     "who": "a",
+     "ar": "لَا، شُكْرًا.",
+     "tr": "lā, shukran.",
+     "en": "No, thank you."
+    },
+    {
+     "who": "b",
+     "ar": "تَفَضَّلْ.",
+     "tr": "tafaḍḍal.",
+     "en": "Here you are."
+    }
+   ],
+   "speakers": {
+    "a": "Ahmad",
+    "b": "Layla"
+   }
+  }
+ ]
+}

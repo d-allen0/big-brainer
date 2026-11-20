@@ -920,3 +920,48 @@ describe("source hygiene", () => {
     }
   });
 });
+
+describe("dialogues: shipped data", () => {
+  const raw = JSON.parse(read("dialogues.json"));
+  const INVIS = new RegExp("[\\u200b-\\u200f\\u202a-\\u202e\\u2066-\\u2069\\ufeff\\u00a0]");
+  const TASHKEEL = /[ً-ْ]/;
+
+  it("has 6 dialogues of 4 to 6 lines, marked unreviewed", () => {
+    assert.equal(raw.reviewed, false);
+    assert.equal(raw.dialogues.length, 6);
+    for (const d of raw.dialogues) assert.ok(d.lines.length >= 4 && d.lines.length <= 6, `${d.id} has ${d.lines.length} lines`);
+  });
+
+  it("ids and titles are unique and well formed", () => {
+    const ids = raw.dialogues.map((d) => d.id);
+    assert.equal(new Set(ids).size, ids.length);
+    assert.equal(new Set(raw.dialogues.map((d) => d.title)).size, ids.length);
+    for (const d of raw.dialogues) {
+      assert.match(d.id, /^[a-z0-9_]+$/);
+      assert.ok(d.title.length > 0);
+    }
+  });
+
+  it("every dialogue has two speakers who both talk, and every line is complete and vowelled", () => {
+    for (const d of raw.dialogues) {
+      assert.deepEqual(Object.keys(d.speakers).sort(), ["a", "b"]);
+      assert.deepEqual([...new Set(d.lines.map((l) => l.who))].sort(), ["a", "b"], `${d.id}: both speakers talk`);
+      for (const [i, l] of d.lines.entries()) {
+        for (const key of ["ar", "tr", "en"]) {
+          assert.equal(typeof l[key], "string", `${d.id}[${i}].${key}`);
+          assert.ok(l[key].length > 0);
+          assert.ok(!INVIS.test(l[key]), `${d.id}[${i}].${key} has an invisible character`);
+        }
+        assert.ok(["a", "b"].includes(l.who));
+        assert.ok(TASHKEEL.test(l.ar), `${d.id}[${i}] has vowel marks`);
+      }
+    }
+  });
+
+  it("the speakers alternate often enough to read as a conversation", () => {
+    for (const d of raw.dialogues) {
+      const switches = d.lines.filter((l, i) => i > 0 && l.who !== d.lines[i - 1].who).length;
+      assert.ok(switches >= d.lines.length - 2, `${d.id} switches speaker ${switches} times`);
+    }
+  });
+});
