@@ -78,8 +78,16 @@ Add any new violation here the moment it is found, then fix it.
   - `tts.js`: native Android TTS first, Web Speech fallback.
   - `letters.json`: letter data in teaching order.
   - `letters-screen.js`: the Letters UI (grid, lesson, practice). Built with `createLettersScreen({ h, ...injectables })` so tests can swap storage, speech and the clock.
+  - `vocab.json`: word list (id, vowelled Arabic, transliteration, meaning, part of speech) in teaching order, roughly common-first. **Not a measured frequency list.** 100 words, written by Claude, unreviewed.
+  - `vocab.js`: pure logic for words: validation (unique ids, Arabic and meanings), sets of 10 (`SET_SIZE`), cards (`ar2en`, `en2ar`), `setMastery`, `suggestedSet`, `buildQuestion` (wrong options from the same set and part of speech first) and `mistakeNote`. Reuses `farAhead` from `alphabet.js`.
+  - `vocab-screen.js`: the Cards UI (sets overview, practice). Built with `createVocabScreen({ h, ...injectables })`, same pattern as the Letters screen.
 - **Security and offline:** the CSP in `index.html` forbids inline scripts and styles and any external request. Keep it that way. Build DOM with the `h()` helper, not `innerHTML` with dynamic content.
-- **Routing:** hash routes. The first segment picks the screen; screens receive `{ parts, setTitle }`. Letters sub-routes: `#/alphabet`, `#/alphabet/letter/<id>`, `#/alphabet/practice`, `#/alphabet/practice/group/<n>`, `#/alphabet/practice/letter/<id>`. Unknown ids fall back to the grid. Hardware Back works because every view is a hash route.
+- **Routing:** hash routes. The first segment picks the screen; screens receive `{ parts, setTitle }`. Letters sub-routes: `#/alphabet`, `#/alphabet/letter/<id>`, `#/alphabet/practice`, `#/alphabet/practice/group/<n>`, `#/alphabet/practice/letter/<id>`. Unknown ids fall back to the grid. Cards sub-routes: `#/cards`, `#/cards/practice`, `#/cards/practice/set/<n>`; anything unknown falls back to the sets overview. Hardware Back works because every view is a hash route.
+- **Practice layout (Letters and Cards share it):**
+  - The action bar (`.actions-bar`: Next, Skip, Keep going, Practice this letter) is pinned just above the tab bar, so the learner never scrolls to continue.
+  - Answers are **one full-width column** so the app works one-handed. A 2x2 grid is used **only on short screens** (`max-height: 700px`) where a single column would not fit. Do not change this without asking the owner.
+  - Target: a whole question, its feedback and Next fit on one phone screen with no scrolling (checked at 360x640, 393x852, 412x915). Feedback wording is the owner's favourite: change layout, not wording.
+  - Notes (heads-up, voice banner) are compact rows: text plus a small button side by side.
 - **Practice rules in code:** rounds of 10; a correct answer grades "good", an answer that is not right grades "again" and the card returns 3 questions later; Skip moves a card to the end without grading; nothing advances on a timer.
 - **Pure logic stays pure.** Keep logic (scheduling, question building, validation) free of the DOM and storage so it can be tested in Node.
 - **Android project:** `android/` is generated fresh in CI and is not committed.
@@ -89,7 +97,7 @@ Add any new violation here the moment it is found, then fix it.
 - Never change the `appId` (`com.dallen0.arabiclearner`) or the signing key. Doing either forces an uninstall, which erases all progress.
 - **The display name is only a label** (`appName` in `capacitor.config.json`, currently "Big Brainer") and is safe to change. **The IndexedDB name `arabic-learner` in `db.js` is not the display name and must never change.** Renaming it would open an empty database and make the learner's progress appear to vanish. Leave the old "arabic-learner" identifiers alone even when the app is renamed.
 - IndexedDB changes need a version bump and a migration. Never drop or rename a store without migrating its data.
-- Card ids are stable identifiers (`alphabet:<letter>:<kind>[:<position>]`). Never change an id format without a migration.
+- Card ids are stable identifiers (`alphabet:<letter>:<kind>[:<position>]`, `vocab:<word id>:<ar2en|en2ar>`). Word ids in `vocab.json` are part of the card id, so never rename or reuse one; only append new words. Never change an id format without a migration.
 - Never ship anything that clears storage.
 
 ### 3.2 Build and release
@@ -117,24 +125,27 @@ Also:
 - Run a syntax check and real tests before committing. Report plainly what was and was not verified, including anything that could not be tested without a device.
 - Keep replies short and phone-friendly. The owner mostly reads on a phone.
 - **Never paste invisible or look-alike characters literally** (zero-width joiners, directional marks, special spaces). Write them with explicit code such as `String.fromCharCode(0x200d)` and verify the file bytes. This slipped through once and made a source file fragile.
+- **Check layout in a real browser, not only jsdom.** jsdom has no layout. Drive the real `www/` in headless Chrome (playwright-core with `/usr/bin/google-chrome`) at 360x640, 393x852 and 412x915, with and without the voice warning, and check that the answers, feedback and Next are visible and nothing scrolls. Any change to practice screens or `styles.css` needs this check.
+- **Ask before changing how the app is tapped or laid out** (button placement, grid vs column, size). The owner uses it one-handed on a phone. Describe the change and wait.
 - **Test the UI for real:** run the actual `www/` app in jsdom with `fake-indexeddb` and drive it like a learner. Include the pacing checks: no forbidden words in any screen, practice never empty, nothing blocked, no inline `style` attributes (CSP), every CSS class used is defined.
 
 ---
 
 ## 5. Roadmap and status
 
-Done: app shell, IndexedDB storage, SM-2 engine, text-to-speech wrapper, alphabet data and logic, pacing foundation, Letters screen (grid, lessons, practice), signing and CI.
+Done: app shell, IndexedDB storage, SM-2 engine, text-to-speech wrapper, alphabet data and logic, pacing foundation, Letters screen (grid, lessons, practice), signing and CI, compact one-screen practice layout, vocab flashcards (100 words, 10 sets, both directions, multiple choice).
 
 Next, in order:
-1. Vocab flashcards (frequency-ordered, with a Quran-focused track). Follow the design checklist in 1.2.
+1. Grow vocab: extend the list (target about 200) using an open frequency list to rank words (Leipzig Corpora, CC BY 4.0, is the candidate; Kelly is non-commercial, OpenSubtitles is share-alike, CAMeL's licence is unconfirmed; credit whatever is used), then add a Quran-focused word track. Quranic text and word lists for it must come from a verified source.
 2. Quiz engine (answer-speed grading is allowed here, but never time pressure or timers shown to the learner).
 3. Grammar lessons, Quran reading track, handwriting canvas.
 
 ### Known gaps
 
 - Example words and hints in `letters.json` are unreviewed by a native speaker.
-- Nothing has been checked on a real device yet: joined-letter rendering and Arabic fonts in the Android WebView, and text-to-speech output. UI logic is tested in jsdom only.
-- Tests exist only as throwaway scripts outside the repo. Add a `test/` folder using `node:test` (the pacing, alphabet, text-to-speech and UI checks are good starting points).
+- All 100 words in `vocab.json` (Arabic forms, transliteration, meanings, order) are unreviewed by a fluent speaker, and the order is not a measured frequency ranking.
+- Text-to-speech output and the Arabic fonts for the word lists have not been checked on a real device. The owner has confirmed on their phone that the Letters practice fits one screen. UI logic is tested in jsdom, layout in headless Chrome.
+- Tests exist only as throwaway scripts outside the repo. Add a `test/` folder using `node:test` (the pacing, alphabet, vocab, text-to-speech, jsdom UI and Chrome layout checks are good starting points).
 - No `.gitignore` or `package-lock.json` yet.
 - GitHub Actions versions show Node deprecation warnings (cosmetic).
 - Practice grades only right or wrong. Finer grading (hard, easy) waits for the quiz engine.
