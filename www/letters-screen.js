@@ -185,7 +185,7 @@ export function createLettersScreen({
         h("p", { class: "ar text", lang: "ar" }, letter.example.ar),
         h("p", { class: "text" }, `${letter.example.tr} · ${letter.example.en}`),
         speakButton(letter.example.ar, "Hear the word")),
-      h("div", { class: "row spaced" }, link(`#/alphabet/practice/letter/${letter.id}`, "Practice this letter", "btn")),
+      h("div", { class: "actions-bar" }, link(`#/alphabet/practice/letter/${letter.id}`, "Practice this letter", "btn")),
       h("div", { class: "row spread" },
         prev ? link(`#/alphabet/letter/${prev.id}`, `← ${prev.nameEn}`) : h("span"),
         next ? link(`#/alphabet/letter/${next.id}`, `${next.nameEn} →`) : h("span")));
@@ -203,9 +203,10 @@ export function createLettersScreen({
     const scopeIds = new Set(scopeLetters.map((l) => l.id));
     const headsUpGroup = scope.type === "group" ? scope.group : scope.type === "letter" ? scope.letter.group : null;
 
-    const content = h("div");
-    const root = h("div", {},
-      h("p", {}, link("#/alphabet", "← Back to letters")),
+    const content = h("div", { class: "practice-body" });
+    const left = h("span", { class: "muted small" });
+    const root = h("div", { class: "practice" },
+      h("div", { class: "practice-head" }, link("#/alphabet", "← Back to letters"), left),
       headsUpGroup ? headsUp(ctx, headsUpGroup) : null,
       voiceBanner(),
       content);
@@ -236,6 +237,7 @@ export function createLettersScreen({
       stats = { answered: 0, right: 0 };
 
       if (queue.length === 0) {
+        left.textContent = "";
         content.replaceChildren(
           h("div", { class: "card" }, h("p", { class: "text" }, "There is nothing to practice here yet."),
             h("div", { class: "row spaced" }, link("#/alphabet", "Back to letters", "btn"))));
@@ -262,7 +264,7 @@ export function createLettersScreen({
 
         let answered = false;
         const feedback = h("div", { class: "feedback", role: "status" });
-        const actions = h("div", { class: "row spaced" });
+        const actions = h("div", { class: "actions-bar" }); // pinned above the tab bar
 
         const buttons = q.choices.map((choice) =>
           h("button", { type: "button", class: "choice", dir: "auto", onclick: () => answer(choice) }, choice.text));
@@ -305,8 +307,8 @@ export function createLettersScreen({
           });
         }
 
+        left.textContent = `${queue.length + 1} left in this round`;
         content.replaceChildren(
-          h("p", { class: "muted small" }, `${queue.length + 1} left in this round`),
           h("div", { class: "card center" },
             h("p", { class: "text" }, QUESTION_TEXT[q.kind]),
             h("div", { class: "ar prompt", lang: "ar" }, q.prompt)),
@@ -319,6 +321,7 @@ export function createLettersScreen({
     }
 
     async function showSummary() {
+      left.textContent = "";
       let next = null;
       try {
         next = alphabet.suggestedGroup(await freshCards(), letters);
@@ -330,7 +333,7 @@ export function createLettersScreen({
           h("h2", {}, "Round complete"),
           h("p", { class: "text" }, `${stats.right} of ${stats.answered} answers were right.`),
           next ? h("p", { class: "small" }, `Suggested next group: ${next}`) : null),
-        h("div", { class: "row spaced" },
+        h("div", { class: "actions-bar" },
           button("Keep going", () => startRound().catch((err) => showError(content, err)), "btn"),
           link("#/alphabet", "Back to letters", "btn secondary")));
     }

@@ -12,6 +12,7 @@
   --warn: #b7791f;
   --radius: 14px;
   --tabbar-h: 56px;
+  --topbar-h: 58px;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -179,22 +180,67 @@ main a.letter-btn { color: var(--text); }
 .forms { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; text-align: center; }
 .form-cell .ar { font-size: 2.2rem; line-height: 1.6; }
 
-/* ---- letters: practice ---- */
-.prompt { font-size: 4.5rem; line-height: 1.4; margin-top: 6px; }
-.choices { display: grid; gap: 10px; margin-bottom: 14px; }
+/* ---- pinned action bar (practice, lesson, round summary) ----
+   Always sits just above the tab bar, so Next / Practice never needs a scroll. */
+.actions-bar {
+  position: sticky;
+  bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom));
+  z-index: 1;
+  display: flex;
+  gap: 10px;
+  margin-top: auto;
+  padding: 8px 0 4px;
+  background: var(--bg);
+}
+.actions-bar .btn { flex: 1; text-align: center; }
+
+/* ---- letters: practice (compact so a whole question fits on one phone screen) ---- */
+.practice {
+  display: flex;
+  flex-direction: column;
+  /* fill the visible area so the action bar rests at the bottom */
+  min-height: calc(100vh - var(--topbar-h) - var(--tabbar-h) - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 32px);
+  min-height: calc(100dvh - var(--topbar-h) - var(--tabbar-h) - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 32px);
+}
+.practice-body { display: flex; flex-direction: column; flex: 1; }
+.practice-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+.practice .card { padding: 8px 12px; margin-bottom: 8px; }
+.practice .card h2 { margin-bottom: 2px; }
+.practice .note { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; padding: 8px 12px; }
+.practice .note p { flex: 1; margin: 0; font-size: 0.85rem; line-height: 1.35; }
+.practice .note .btn { flex: none; min-height: 36px; padding: 4px 12px; font-size: 0.85rem; }
+
+.prompt { font-size: 3.2rem; line-height: 1.3; margin-top: 0; }
+.choices { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
 .choice {
-  min-height: 54px;
-  padding: 10px 14px;
+  min-height: 48px;
+  padding: 6px 8px;
   background: var(--surface);
   color: var(--text);
   border: 1.5px solid var(--border);
   border-radius: var(--radius);
   font: inherit;
-  font-size: 1.1rem;
+  font-size: 1rem;
+  line-height: 1.3;
   cursor: pointer;
 }
 .choice:disabled { cursor: default; opacity: 1; }
 .choice.correct { border-color: var(--accent); background: var(--ok-bg); }
 .choice.chosen { border-color: var(--warn); }
-.feedback .verdict { margin: 0 0 4px; font-weight: 650; color: var(--text); }
-.feedback p { margin: 0 0 6px; }
+.feedback { margin-bottom: 4px; }
+.feedback .verdict { margin: 0 0 2px; font-weight: 650; color: var(--text); }
+.feedback p { margin: 0 0 3px; font-size: 0.85rem; line-height: 1.35; }
+
+/* Short screens (small phones): tighten further so the answer feedback still fits without scrolling */
+@media (max-height: 700px) {
+  main { padding-top: 8px; padding-bottom: 8px; }
+  .practice { min-height: calc(100vh - var(--topbar-h) - var(--tabbar-h) - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 16px); min-height: calc(100dvh - var(--topbar-h) - var(--tabbar-h) - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 16px); }
+  .practice-head { margin-bottom: 4px; }
+  .practice .card { padding: 4px 10px; margin-bottom: 6px; }
+  .prompt { font-size: 2.4rem; line-height: 1.2; }
+  .choices { gap: 6px; margin-bottom: 6px; }
+  .choice { min-height: 42px; padding: 4px 6px; font-size: 0.95rem; }
+  .feedback p { font-size: 0.8rem; line-height: 1.3; margin-bottom: 2px; }
+  .actions-bar { padding: 6px 0 2px; }
+  .actions-bar .btn { min-height: 40px; padding: 6px 14px; }
+}
