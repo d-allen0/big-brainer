@@ -38,24 +38,25 @@ function comingSoon(name) {
 
 // Home never shows counts, due dates or deadlines: practice is always available.
 function homeScreen() {
+  const pair = (practiceHref, browseHref) =>
+    h("div", { class: "btn-pair" },
+      h("a", { class: "btn", href: practiceHref }, "Practice"),
+      h("a", { class: "btn secondary", href: browseHref }, "Browse"));
   return h("div", {},
     h("div", { class: "card" },
       h("h2", {}, "Welcome"),
       h("p", {}, "Learn to read and understand Modern Standard Arabic."),
-      h("p", { class: "ar", lang: "ar" }, "مَرْحَبًا")),
+      h("p", { class: "ar", lang: "ar" }, "مَرْحَبًا"),
+      h("div", { class: "row spaced" },
+        h("a", { class: "btn secondary", href: "#/options" }, "Voice options"))),
     h("div", { class: "card" },
       h("h2", {}, "Ready to practice"),
       h("p", {}, "Go at your own pace. Practice as much or as little as you like."),
-      h("div", { class: "row spaced" },
-        h("a", { class: "btn", href: "#/alphabet/practice" }, "Practice letters"),
-        h("a", { class: "btn secondary", href: "#/alphabet" }, "Browse the letters")),
-      h("div", { class: "row spaced" },
-        h("a", { class: "btn", href: "#/cards/practice" }, "Practice words"),
-        h("a", { class: "btn secondary", href: "#/cards" }, "Browse the words")),
-      h("div", { class: "row spaced" },
-        h("a", { class: "btn", href: "#/quiz" }, "Take a quiz")),
-      h("div", { class: "row spaced" },
-        h("a", { class: "btn secondary", href: "#/options" }, "Voice options"))));
+      h("h3", { class: "home-topic" }, "Letters"),
+      pair("#/alphabet/practice", "#/alphabet"),
+      h("h3", { class: "home-topic" }, "Words"),
+      pair("#/cards/practice", "#/cards"),
+      h("a", { class: "btn wide", href: "#/quiz" }, "Take a quiz")));
 }
 
 const lettersScreen = createLettersScreen({ h });

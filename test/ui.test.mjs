@@ -51,7 +51,7 @@ describe("Home", () => {
     assert.ok(!/Due for review/i.test(text()));
     assert.equal($$(".stat").length, 0, "home shows no counts");
     assert.deepEqual($$("#view a").map((a) => a.getAttribute("href")),
-      ["#/alphabet/practice", "#/alphabet", "#/cards/practice", "#/cards", "#/quiz", "#/options"]);
+      ["#/options", "#/alphabet/practice", "#/alphabet", "#/cards/practice", "#/cards", "#/quiz"]);
   });
 
   it("an unknown route falls back to Home", async () => {
@@ -64,12 +64,26 @@ describe("Home", () => {
     ttsLogic.setPreferences(null); // the rest of the tests use the defaults
   });
 
-  it("Home has a Voice options button, as the quiet outlined style, below the quiz", async () => {
+  it("Home: Voice options sits in the Welcome card, and Practice | Browse are side by side pairs", async () => {
     await go("#/", () => text().includes("Ready to practice"));
-    const links = $$("#view a.btn");
-    const voice = links.find((a) => a.textContent === "Voice options");
-    assert.ok(voice && voice.classList.contains("secondary") && voice.getAttribute("href") === "#/options");
-    assert.ok(links.findIndex((a) => a.textContent === "Take a quiz") < links.indexOf(voice));
+    const [welcome, practice] = $$("#view > div > .card");
+    const voice = [...welcome.querySelectorAll("a")];
+    assert.deepEqual(voice.map((a) => a.textContent), ["Voice options"]);
+    assert.ok(voice[0].classList.contains("secondary") && voice[0].getAttribute("href") === "#/options");
+    assert.deepEqual([...practice.querySelectorAll(".home-topic")].map((x) => x.textContent), ["Letters", "Words"]);
+    const pairs = [...practice.querySelectorAll(".btn-pair")];
+    assert.equal(pairs.length, 2);
+    for (const [pair, [practiceHref, browseHref]] of [[pairs[0], ["#/alphabet/practice", "#/alphabet"]], [pairs[1], ["#/cards/practice", "#/cards"]]]) {
+      const [p, b] = [...pair.querySelectorAll("a")];
+      assert.deepEqual([p.textContent, p.getAttribute("href"), p.classList.contains("secondary")], ["Practice", practiceHref, false]);
+      assert.deepEqual([b.textContent, b.getAttribute("href"), b.classList.contains("secondary")], ["Browse", browseHref, true]);
+      assert.equal(pair.children.length, 2);
+    }
+    const quiz = [...practice.querySelectorAll("a")].find((a) => a.textContent === "Take a quiz");
+    assert.ok(quiz && quiz.classList.contains("wide") && quiz.getAttribute("href") === "#/quiz");
+    assert.equal(practice.querySelectorAll("a").length, 5, "the practice card has only practice, browse and quiz links");
+    assert.ok(!text().includes("Practice letters") && !text().includes("Browse the words"), "the old long labels are gone");
+    for (const cls of ["home-topic", "btn-pair", "wide"]) assert.ok(new RegExp(`\\.${cls}(?![\\w-])`).test(css), `.${cls} is styled`);
   });
 
   it("the Voice options route opens its own screen, with Back to Home and no tab highlighted", async () => {
