@@ -293,13 +293,20 @@ for (const { w, h } of SIZES) {
         }
       });
 
-      it("both directions fit in every phrase set; Next is always visible", async () => {
-        const { ctx, page, errors } = await newPage(w, h, withVoice);
+      for (const font of [null, "FreeMono"]) it(`both directions fit in every phrase set with the longest answers${font ? ` (taller Arabic font: ${font})` : ""}; Next is always visible`, async () => {
+        // A taller Arabic font stands in for devices whose fonts have larger line heights than this machine's.
+        const ctx = await browser.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: 2, hasTouch: true, isMobile: true, bypassCSP: !!font });
+        const page = await ctx.newPage();
+        if (withVoice) await page.addInitScript(FAKE_TTS);
+        const errors = [];
+        page.on("pageerror", (e) => errors.push(e.message));
         try {
           const seen = new Set();
-          for (const set of [1, 2, 3, 4]) {
+          for (const set of [1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4]) { // each set a few times: different questions every time
             await page.goto(`${base}#/cards/phrases/practice/set/${set}`);
+            await page.reload();
             await page.waitForSelector(".choice");
+            if (font) await page.addStyleTag({ content: `.ar, .choice-ar, .prompt { font-family: "${font}" !important; }` });
             await page.waitForTimeout(100);
             for (let i = 0; i < 14; i++) {
               if (await page.$("button:text-is('Keep going')")) break;
@@ -308,7 +315,8 @@ for (const { w, h } of SIZES) {
               assert.ok(m.choices.every((c) => c.bottom <= m.tabTop + 0.5), `set ${set} ${kind}: all 4 answers above the tab bar`);
               assert.equal(new Set(m.choices.map((c) => c.left)).size, SHORT(h) ? 2 : 1, `set ${set} ${kind}: column layout`);
               if (withVoice) assert.ok(m.docH <= m.vh + 1, `set ${set} ${kind}: no scrolling (doc ${m.docH} vs ${m.vh})`);
-              await (await page.$$(".choice"))[0].click(); // usually wrong: the longest feedback
+              const texts = await page.$$eval(".choice", (bs) => bs.map((x) => x.textContent.length));
+              await (await page.$$(".choice"))[texts.indexOf(Math.max(...texts))].click(); // the longest answer: the longest feedback
               await page.waitForTimeout(40);
               m = await measure(page);
               assert.ok(inView(m, m.next), `set ${set} ${kind}: Next visible after answering`);
