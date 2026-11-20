@@ -5,6 +5,9 @@
 import { createLettersScreen } from "./letters-screen.js";
 import { createVocabScreen } from "./vocab-screen.js";
 import { createQuizScreen } from "./quiz-screen.js";
+import { createOptionsScreen, PREFS_KEY } from "./options-screen.js";
+import * as tts from "./tts.js";
+import * as db from "./db.js";
 
 const view = document.getElementById("view");
 const title = document.getElementById("screen-title");
@@ -50,12 +53,15 @@ function homeScreen() {
         h("a", { class: "btn", href: "#/cards/practice" }, "Practice words"),
         h("a", { class: "btn secondary", href: "#/cards" }, "Browse the words")),
       h("div", { class: "row spaced" },
-        h("a", { class: "btn", href: "#/quiz" }, "Take a quiz"))));
+        h("a", { class: "btn", href: "#/quiz" }, "Take a quiz")),
+      h("div", { class: "row spaced" },
+        h("a", { class: "btn secondary", href: "#/options" }, "Voice options"))));
 }
 
 const lettersScreen = createLettersScreen({ h });
 const vocabScreen = createVocabScreen({ h });
 const quizScreen = createQuizScreen({ h });
+const optionsScreen = createOptionsScreen({ h });
 
 // route name -> { title, render }
 export const screens = {
@@ -63,8 +69,21 @@ export const screens = {
   alphabet: { title: "Letters", render: lettersScreen },
   cards: { title: "Flashcards", render: vocabScreen },
   quiz: { title: "Quiz", render: quizScreen },
+  options: { title: "Voice options", render: optionsScreen },
   read: { title: "Read", render: comingSoon("Reading") },
 };
+
+/**
+ * Apply the learner's saved voice and speed, so every pronunciation button uses them.
+ * Anything unreadable or unusable just means the defaults. Never throws.
+ */
+export async function applySavedVoice({ store = db, speech = tts } = {}) {
+  try {
+    speech.setPreferences(await store.getMeta(PREFS_KEY, null));
+  } catch {
+    speech.setPreferences(null);
+  }
+}
 
 let renderToken = 0;
 
@@ -96,4 +115,5 @@ async function navigate() {
 }
 
 window.addEventListener("hashchange", navigate);
+applySavedVoice(); // does not hold up the first screen; speech only happens when a button is pressed
 navigate();

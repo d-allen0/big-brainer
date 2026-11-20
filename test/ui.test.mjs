@@ -12,6 +12,10 @@ import fs from "node:fs";
 import path from "node:path";
 import { createEnv, sleep, ZWJ, WWW } from "./helpers.mjs";
 
+// The learner had already chosen a voice and speed in an earlier session: seed it before the app starts.
+const earlyDb = await import(path.join(WWW, "db.js"));
+await earlyDb.setMeta("speech.prefs", { voiceId: "seeded-voice", speed: "slow" });
+
 const env = await createEnv();
 const { h, db, css, letters, words, $, $$, text, until, go, audit, usedClasses, clickButton, hasButton, clickNext, hasLink, headsUps, left } = env;
 const { createLettersScreen } = await import(path.join(WWW, "letters-screen.js"));
@@ -47,11 +51,52 @@ describe("Home", () => {
     assert.ok(!/Due for review/i.test(text()));
     assert.equal($$(".stat").length, 0, "home shows no counts");
     assert.deepEqual($$("#view a").map((a) => a.getAttribute("href")),
-      ["#/alphabet/practice", "#/alphabet", "#/cards/practice", "#/cards", "#/quiz"]);
+      ["#/alphabet/practice", "#/alphabet", "#/cards/practice", "#/cards", "#/quiz", "#/options"]);
   });
 
   it("an unknown route falls back to Home", async () => {
     await go("#/bogus", () => text().includes("Ready to practice"));
+  });
+
+  it("the voice and speed chosen in an earlier session are applied when the app starts", async () => {
+    await sleep(50);
+    assert.deepEqual(ttsLogic.getPreferences(), { voiceId: "seeded-voice", speed: "slow" });
+    ttsLogic.setPreferences(null); // the rest of the tests use the defaults
+  });
+
+  it("Home has a Voice options button, as the quiet outlined style, below the quiz", async () => {
+    await go("#/", () => text().includes("Ready to practice"));
+    const links = $$("#view a.btn");
+    const voice = links.find((a) => a.textContent === "Voice options");
+    assert.ok(voice && voice.classList.contains("secondary") && voice.getAttribute("href") === "#/options");
+    assert.ok(links.findIndex((a) => a.textContent === "Take a quiz") < links.indexOf(voice));
+  });
+
+  it("the Voice options route opens its own screen, with Back to Home and no tab highlighted", async () => {
+    await go("#/options", () => $(".segmented"));
+    audit("options route");
+    assert.equal($("#screen-title").textContent, "Voice options");
+    assert.ok(hasLink("#/"));
+    assert.equal($("[aria-current=page]"), null, "it is a side screen, not a tab");
+    assert.deepEqual($$(".tabbar a").map((a) => a.textContent), ["Home", "Letters", "Cards", "Read"], "the tab bar is unchanged");
+    assert.ok(text().includes("This device has no speech engine."), "jsdom has no speech engine: a plain message, no crash");
+    assert.deepEqual($$(".segmented button").map((b) => b.textContent), ["Slow", "Normal", "Fast"]);
+  });
+
+  it("applySavedVoice uses a saved choice, ignores junk, and never throws", async () => {
+    const app = await import(path.join(WWW, "app.js"));
+    const fake = (value, boom = false) => ({
+      store: { getMeta: async () => { if (boom) throw new Error("storage unavailable"); return value; } },
+      speech: { setPreferences: ttsLogic.setPreferences },
+    });
+    await app.applySavedVoice(fake({ voiceId: "v1", speed: "fast" }));
+    assert.deepEqual(ttsLogic.getPreferences(), { voiceId: "v1", speed: "fast" });
+    await app.applySavedVoice(fake({ voiceId: 9, speed: "warp" }));
+    assert.deepEqual(ttsLogic.getPreferences(), { voiceId: null, speed: "normal" });
+    await app.applySavedVoice(fake({ voiceId: "v2", speed: "slow" }));
+    await app.applySavedVoice(fake(null, true));
+    assert.deepEqual(ttsLogic.getPreferences(), { voiceId: null, speed: "normal" }, "unreadable storage means the defaults");
+    ttsLogic.setPreferences(null);
   });
 
   it("the old Quran route falls back to Home, and no screen mentions the Quran", async () => {
