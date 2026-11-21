@@ -380,6 +380,103 @@ for (const { w, h } of SIZES) {
       });
     });
 
+    describe(`Match at ${tag}`, { skip }, () => {
+      // What goes with what, from the shipped data (a letter pairs with its name card).
+      const partner = {};
+      for (const l of letters) partner[l.char] = `${l.name} (${l.nameEn})`;
+      for (const f of ["vocab.json", "phrases.json"]) {
+        const data = JSON.parse(fs.readFileSync(path.join(WWW, f), "utf8"));
+        for (const item of data.words ?? data.phrases) partner[item.ar] = item.en;
+      }
+
+      for (const font of [null, "FreeMono"]) it(`five pairs per page fit, a wrong pair's note fits, Next page is reachable, over several rounds${font ? ` (taller font: ${font})` : ""}`, async () => {
+        const ctx = await browser.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: 2, hasTouch: true, isMobile: true, bypassCSP: !!font });
+        const page = await ctx.newPage();
+        if (withVoice) await page.addInitScript(FAKE_TTS);
+        const errors = [];
+        page.on("pageerror", (e) => errors.push(e.message));
+        const m0 = () => page.evaluate(() => {
+          const box = (e) => { const r = e.getBoundingClientRect(); return { top: r.top, bottom: r.bottom, left: r.left, right: r.right, h: r.height }; };
+          return {
+            label: document.querySelector(".practice-head .muted").textContent,
+            docH: document.documentElement.scrollHeight, vh: innerHeight, docW: document.documentElement.scrollWidth, vw: innerWidth,
+            tabTop: box(document.querySelector(".tabbar")).top, topBottom: box(document.querySelector(".topbar")).bottom,
+            tiles: [...document.querySelectorAll(".tile")].map(box),
+            feedback: box(document.querySelector(".match-feedback")),
+            actions: box(document.querySelector(".actions-bar")),
+            next: [...document.querySelectorAll(".actions-bar button")].map(box),
+          };
+        });
+        const style = () => font ? page.addStyleTag({ content: `body, a, button, .ar { font-family: "${font}" !important; }` }) : null;
+        // Click the Arabic tile `ar` and then the tile whose text is `meaning`.
+        const pair = (ar, meaning) => page.evaluate(([a, mtext]) => {
+          const col = (i) => [...document.querySelectorAll(".match-col")[i].querySelectorAll(".tile")];
+          col(0).find((t) => t.textContent === a).click();
+          col(1).find((t) => t.textContent === mtext).click();
+        }, [ar, meaning]);
+        const openArabic = () => page.$$eval(".match-col:first-child .tile:not([disabled])", (els) => els.map((e) => e.textContent));
+        const checkFits = (m, what) => {
+          assert.ok(m.docW <= m.vw, `${what}: no horizontal overflow (${m.docW} vs ${m.vw})`);
+          if (m.label === "Another look") assert.ok(m.tiles.length >= 4 && m.tiles.length <= 8 && m.tiles.length % 2 === 0, `${what}: the extra page has only the items that were mixed up (${m.tiles.length} tiles)`);
+          else assert.equal(m.tiles.length, 10, `${what}: ten tiles`);
+          assert.ok(m.tiles.every((t) => t.h >= 36 && t.left >= 0 && t.right <= m.vw), `${what}: tiles are big enough and on screen (smallest ${Math.min(...m.tiles.map((t) => t.h))}px)`);
+          assert.ok(m.tiles.every((t) => t.bottom <= m.tabTop + 0.5 && t.top >= m.topBottom - 0.5), `${what}: every tile is between the title and the tab bar`);
+          if (withVoice) assert.ok(m.docH <= m.vh + 1, `${what}: no scrolling (doc ${m.docH} vs ${m.vh})`);
+        };
+        try {
+          await page.addInitScript(() => { let s = 4242; Math.random = () => ((s = (s * 1664525 + 1013904223) % 4294967296) / 4294967296); });
+          await page.goto(`${base}#/match`);
+          await page.waitForSelector(".tile");
+          await style();
+          await page.waitForTimeout(120);
+          let sawRetry = false;
+          for (let round = 0; round < 4; round++) {
+            for (let guard = 0; guard < 4; guard++) {
+              await page.waitForSelector(".tile");
+              checkFits(await m0(), `round ${round + 1} page`);
+
+              // A wrong pair: the two-line note must fit with the tiles on screen.
+              if (round === 0 || round === 2) {
+                const open = await openArabic();
+                const left = open[0];
+                await pair(left, partner[open[1]]);
+                await page.waitForTimeout(40);
+                const m = await m0();
+                assert.ok(await page.$(".match-feedback .verdict"), "the note is showing");
+                checkFits(m, `round ${round + 1} after a wrong pair`);
+                assert.ok(m.feedback.bottom <= m.tabTop + 0.5, `the note is above the tab bar (${m.feedback.bottom} vs ${m.tabTop}, docH ${m.docH}, vh ${m.vh})`);
+              }
+
+              for (const ar of await openArabic()) await pair(ar, partner[ar]);
+              await page.waitForTimeout(40);
+              const m = await m0();
+              assert.ok(m.tiles.every((t) => t.bottom <= m.tabTop + 0.5), "a finished page still fits");
+              assert.equal(m.next.length, 1, "one button to go on");
+              assert.ok(m.next[0].h >= 40 && m.next[0].top >= m.topBottom - 0.5 && m.next[0].bottom <= m.tabTop + 0.5, "the go-on button is reachable");
+              const btn = await page.textContent(".actions-bar button");
+              if (btn === "Keep going") sawRetry = true;
+              await page.click(".actions-bar button");
+              await page.waitForTimeout(40);
+              if (btn === "Finish round") break;
+            }
+            // The summary: both buttons visible, nothing to scroll.
+            await page.waitForSelector(".card.center h2");
+            const s = await page.evaluate(() => {
+              const b = (e) => e.getBoundingClientRect();
+              return { docH: document.documentElement.scrollHeight, vh: innerHeight, tab: b(document.querySelector(".tabbar")).top, btns: [...document.querySelectorAll(".actions-bar .btn")].map((e) => b(e).bottom) };
+            });
+            assert.ok(s.btns.length === 2 && s.btns.every((v) => v <= s.tab + 0.5), "summary buttons are reachable");
+            await page.click(".actions-bar button:text-is('Keep going')");
+            await page.waitForTimeout(60);
+          }
+          assert.ok(sawRetry, "a wrong pair led to the extra page");
+          assert.deepEqual(errors, []);
+        } finally {
+          await ctx.close();
+        }
+      });
+    });
+
     describe(`Phrases at ${tag}`, { skip }, () => {
       it("the toggle and phrase overview fit sideways, with the toggle visible at the top", async () => {
         const { ctx, page, errors } = await newPage(w, h, withVoice);
@@ -545,7 +642,7 @@ for (const { w, h } of SIZES) {
               };
             });
             assert.ok(m.docW <= m.vw, `no horizontal overflow (${m.docW} vs ${m.vw})`);
-            assert.equal(m.pairs.length, 3);
+            assert.equal(m.pairs.length, 4, "Letters, Words, Phrases and Quiz | Match");
             for (const [a, b] of m.pairs) {
               assert.equal(Math.round(a.top), Math.round(b.top), "Practice and Browse are on the same row");
               assert.ok(a.right <= b.left, "Practice is left of Browse");
@@ -555,7 +652,7 @@ for (const { w, h } of SIZES) {
             }
             assert.ok(m.voice && m.voice.h >= 44, "Voice options is in the Welcome card and big enough");
             assert.ok(m.quiz.h >= 44 && m.quiz.left >= 0 && m.quiz.right <= m.vw);
-            assert.ok(m.quiz.w > m.pairs[0][0].w * 1.5, "Take a quiz is a full-width row");
+            assert.deepEqual([...m.pairs[3]].map((b) => Math.round(b.top)).filter((v, i, a) => a.indexOf(v) === i).length, 1, "Take a quiz and Match are on one row");
 
             // The Quiz button is reachable by scrolling, and Voice options opens its screen.
             await page.locator("a:text-is('Take a quiz')").scrollIntoViewIfNeeded();

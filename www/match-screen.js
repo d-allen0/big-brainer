@@ -120,7 +120,7 @@ export function createMatchScreen({
       const p = match.progress(shown);
       label.textContent = p.retry ? "Another look" : `Page ${p.page} of ${p.pages}`;
       content.replaceChildren(
-        h("p", { class: "text small" }, "Tap an Arabic tile, then the tile that goes with it."),
+        h("p", { class: "text small match-hint" }, "Tap an Arabic tile, then the tile that goes with it."),
         h("div", { class: "match-grid" },
           h("div", { class: "match-col" }, shown.layout.left.map((t) => tile("left", t, shown))),
           h("div", { class: "match-col" }, shown.layout.right.map((t) => tile("right", t, shown)))),
