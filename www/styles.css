@@ -229,6 +229,30 @@ main a.letter-btn { color: var(--text); }
 .bubble-detail[hidden] { display: none; }
 .bubble-tr { color: var(--muted); }
 
+/* ---- match: two columns of tiles ---- */
+.match-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 8px; }
+.match-col { display: flex; flex-direction: column; gap: 6px; }
+.tile {
+  flex: 1 1 auto;
+  min-height: 48px;
+  padding: 6px 8px;
+  background: var(--surface);
+  color: var(--text);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  font: inherit;
+  font-size: 0.95rem;
+  line-height: 1.25;
+  cursor: pointer;
+}
+.tile.ar { font-size: 1.4rem; line-height: 1.5; }
+.tile.long { font-size: 0.8rem; line-height: 1.2; }
+.tile.ar.long { font-size: 1.05rem; line-height: 1.35; }
+.tile.selected { border-color: var(--accent); outline: 2px solid var(--accent); }
+.tile.done { opacity: 0.35; border-style: dashed; cursor: default; }
+.tile:disabled { cursor: default; }
+.match-feedback { min-height: 4.2em; }
+
 /* ---- pinned action bar (practice, lesson, round summary) ----
    Always sits just above the tab bar, so Next / Practice never needs a scroll. */
 .actions-bar {
@@ -405,6 +429,12 @@ main .segmented a.active { background: var(--accent); color: var(--accent-text);
   .choices { grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 6px; } /* short screens only */
   .choice { min-height: 42px; padding: 4px 6px; font-size: 0.95rem; }
   .feedback p { font-size: 0.8rem; line-height: 1.3; margin-bottom: 2px; }
+  .match-grid { gap: 8px; margin-bottom: 4px; }
+  .match-col { gap: 4px; }
+  .tile { min-height: 42px; padding: 3px 6px; }
+  .tile.ar { font-size: 1.25rem; line-height: 1.35; }
+  .tile.ar.long { font-size: 0.95rem; line-height: 1.25; }
+  .match-feedback { min-height: 3.4em; }
   .actions-bar { padding: 6px 0 2px; }
   .actions-bar .btn { min-height: 40px; padding: 6px 14px; }
 }

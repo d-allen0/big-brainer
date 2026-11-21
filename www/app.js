@@ -5,6 +5,7 @@
 import { createLettersScreen } from "./letters-screen.js";
 import { createVocabScreen } from "./vocab-screen.js";
 import { createQuizScreen } from "./quiz-screen.js";
+import { createMatchScreen } from "./match-screen.js";
 import { createReadScreen } from "./read-screen.js";
 import { createOptionsScreen, PREFS_KEY } from "./options-screen.js";
 import * as tts from "./tts.js";
@@ -58,6 +59,7 @@ function homeScreen() {
 const lettersScreen = createLettersScreen({ h });
 const vocabScreen = createVocabScreen({ h });
 const quizScreen = createQuizScreen({ h });
+const matchScreen = createMatchScreen({ h });
 const optionsScreen = createOptionsScreen({ h });
 const readScreen = createReadScreen({ h });
 
@@ -67,6 +69,7 @@ export const screens = {
   alphabet: { title: "Letters", render: lettersScreen },
   cards: { title: "Flashcards", render: vocabScreen },
   quiz: { title: "Quiz", render: quizScreen },
+  match: { title: "Match", render: matchScreen },
   options: { title: "Voice options", render: optionsScreen },
   read: { title: "Read", render: readScreen },
 };
