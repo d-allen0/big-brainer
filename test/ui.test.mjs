@@ -33,11 +33,15 @@ const phraseList = phraseLogic.parsePhrases(JSON.parse(fs.readFileSync(path.join
 const dialogueLogic = await import(path.join(WWW, "dialogues.js"));
 const dialoguesRaw = JSON.parse(fs.readFileSync(path.join(WWW, "dialogues.json"), "utf8"));
 const dialogueList = dialogueLogic.parseDialogues(dialoguesRaw);
+const textsLogic = await import(path.join(WWW, "texts.js"));
+const textsRaw = JSON.parse(fs.readFileSync(path.join(WWW, "texts.json"), "utf8"));
+const textList = textsLogic.parseTexts(textsRaw);
 const { createReadScreen } = await import(path.join(WWW, "read-screen.js"));
 const baseFetch = globalThis.fetch;
 const phrasesRaw = JSON.parse(fs.readFileSync(path.join(WWW, "phrases.json"), "utf8"));
 globalThis.fetch = async (url) => (String(url).includes("phrases") ? { ok: true, status: 200, json: async () => phrasesRaw }
-  : String(url).includes("dialogues") ? { ok: true, status: 200, json: async () => dialoguesRaw } : baseFetch(url));
+  : String(url).includes("dialogues") ? { ok: true, status: 200, json: async () => dialoguesRaw }
+  : String(url).includes("texts") ? { ok: true, status: 200, json: async () => textsRaw } : baseFetch(url));
 
 const byId = Object.fromEntries(letters.map((l) => [l.id, l]));
 const byAr = Object.fromEntries(words.map((w) => [w.ar, w]));
@@ -1829,6 +1833,210 @@ describe("Read: dialogues", () => {
   it("a failed load shows the error instead of a blank screen", async () => {
     const screen = createReadScreen({ h, loadDialogues: async () => { throw new Error("Could not load dialogues (404)"); }, store: memoryStore(), speech: fakeSpeech() });
     await assert.rejects(screen({ parts: ["read"] }), /Could not load dialogues \(404\)/);
+  });
+});
+
+// ------------------------------------------------------------------- Read: texts
+
+describe("Read: texts", () => {
+  const SCORE_WORDS = /\b(timer|seconds?|faster|quicker|slower|speed|hurry|time limit|score|points?|out of)\b/i;
+  const tab = () => $(".tabbar a[aria-current]")?.textContent;
+  const sentences = () => $$(".bubble");
+  const choices = () => $$(".choice");
+
+  function memoryStore(initial = {}) {
+    const meta = new Map(Object.entries(initial));
+    return { meta, getMeta: async (k, f = null) => (meta.has(k) ? structuredClone(meta.get(k)) : f), setMeta: async (k, v) => { meta.set(k, structuredClone(v)); } };
+  }
+  function fakeSpeech({ ok = true } = {}) {
+    const said = [];
+    return {
+      said, opened: false,
+      checkArabic: async () => (ok ? { ok: true } : { ok: false, code: "no-arabic-voice", message: "No Arabic voice is installed." }),
+      speak: async (t) => { said.push(t); },
+      stop: async () => {},
+      openVoiceInstall: async () => {},
+    };
+  }
+  async function mountText(id, { speech = fakeSpeech(), store = memoryStore(), seed = 1 } = {}) {
+    const screen = createReadScreen({ h, loadDialogues: async () => dialogueList, loadTexts: async () => textList, store, speech, rng: alphabet.seededRng(seed) });
+    document.querySelector("#view").replaceChildren(await screen({ parts: ["read", "text", id], setTitle: () => {} }));
+    await sleep(20);
+    return { speech, store };
+  }
+  async function mountList(store = memoryStore()) {
+    const screen = createReadScreen({ h, loadDialogues: async () => dialogueList, loadTexts: async () => textList, store, speech: fakeSpeech() });
+    document.querySelector("#view").replaceChildren(await screen({ parts: ["read", "texts"], setTitle: () => {} }));
+  }
+  const rightButton = (t) => choices().find((b) => b.textContent === t.question.options[t.question.answer]);
+
+  it("both Read lists start with a Dialogues | Texts switch that marks the current one and links to both", async () => {
+    await go("#/read", () => $$(".dialogue-row").length > 0);
+    for (const [route, label, wait] of [["#/read", "Dialogues", () => $$(".dialogue-row").length === 6], ["#/read/texts", "Texts", () => $$(".dialogue-row").length === 12]]) {
+      await go(route, wait);
+      const nav = $(".segmented");
+      assert.deepEqual([...nav.querySelectorAll("a")].map((a) => [a.textContent, a.getAttribute("href")]), [["Dialogues", "#/read"], ["Texts", "#/read/texts"]]);
+      const current = nav.querySelectorAll("a[aria-current]");
+      assert.equal(current.length, 1);
+      assert.equal(current[0].textContent, label);
+      assert.equal(current[0].getAttribute("aria-current"), "true", "never page, which belongs to the tab bar");
+      assert.equal(tab(), "Read");
+    }
+  });
+
+  it("the Texts list shows 12 texts in 3 levels, all open, with Up next on the first", async () => {
+    await go("#/read/texts", () => $$(".dialogue-row").length === 12);
+    audit("texts list");
+    assert.equal($("#screen-title").textContent, "Read");
+    assert.deepEqual($$("#view h3").map((e) => e.textContent), ["Level 1", "Level 2", "Level 3"]);
+    const rows = $$(".dialogue-row");
+    assert.deepEqual(rows.map((r) => r.getAttribute("href")), textList.map((t) => `#/read/text/${t.id}`), "every text is directly reachable, hardest included");
+    assert.equal($$(".tag").length, 1);
+    assert.ok(rows[0].textContent.includes("Up next"));
+    assert.ok(rows[0].textContent.includes("1 sentence") && !rows[0].textContent.includes("1 sentences"));
+    assert.ok(rows[11].textContent.includes("5 sentences"));
+    assert.ok(!SCORE_WORDS.test(text()));
+  });
+
+  it("a text shows one row per sentence with the Arabic, no meanings until tapped, the level and a way back", async () => {
+    await go("#/read/text/my_family", () => sentences().length > 0);
+    audit("text");
+    const t = textList.find((x) => x.id === "my_family");
+    assert.equal($("#screen-title").textContent, "My family");
+    assert.equal(tab(), "Read");
+    assert.deepEqual($$(".bubble-ar").map((e) => e.textContent), t.sentences.map((s) => s.ar));
+    assert.equal($$(".bubble-who").length, 0, "a text has no speakers");
+    assert.ok($$(".bubble-detail").every((e) => e.hidden));
+    assert.ok(hasLink("#/read/texts"), "Back to Texts");
+    assert.ok(text().includes("Level 3"));
+    assert.ok(text().includes(t.question.prompt));
+    assert.equal(choices().length, t.question.options.length);
+    assert.ok($$("button").some((b) => b.textContent === "Hear whole text"));
+  });
+
+  it("tapping a sentence shows its transliteration and meaning, and tapping again hides them", async () => {
+    await go("#/read/text/ahmad_man", () => sentences().length > 0);
+    const t = textList.find((x) => x.id === "ahmad_man");
+    const first = sentences()[0];
+    first.click();
+    const detail = first.querySelector(".bubble-detail");
+    assert.equal(detail.hidden, false);
+    assert.ok(detail.textContent.includes(t.sentences[0].tr) && detail.textContent.includes(t.sentences[0].en));
+    assert.ok(sentences()[1].querySelector(".bubble-detail").hidden);
+    first.click();
+    assert.equal(detail.hidden, true);
+  });
+
+  it("an unknown text id falls back to the Texts list", async () => {
+    await go("#/read/text/nope", () => $$(".dialogue-row").length === 12);
+    assert.ok($$(".segmented a[aria-current]")[0].textContent === "Texts");
+    await go("#/read/text", () => $$(".dialogue-row").length === 12);
+  });
+
+  it("the options are shuffled, and the right one is not always first", async () => {
+    const t = textList.find((x) => x.id === "big_house");
+    const firsts = new Set();
+    for (let seed = 1; seed <= 12; seed++) {
+      await mountText("big_house", { seed });
+      assert.deepEqual(choices().map((b) => b.textContent).sort(), [...t.question.options].sort());
+      firsts.add(choices()[0].textContent);
+    }
+    assert.ok(firsts.size > 1);
+  });
+
+  it("a right answer says Yes!, shows the note, marks the answer and locks the options; nothing is scored", async () => {
+    const t = textList.find((x) => x.id === "cold_water");
+    await mountText("cold_water");
+    rightButton(t).click();
+    assert.ok($(".feedback .verdict").textContent === "Yes!");
+    assert.ok(text().includes(t.question.note));
+    assert.ok(rightButton(t).classList.contains("correct"));
+    assert.ok(choices().every((b) => b.disabled));
+    assert.equal($$(".choice.chosen").length, 0);
+    assert.ok(!SCORE_WORDS.test(text()));
+  });
+
+  it("a wrong answer says Not quite., shows the right answer and the note, and costs nothing", async () => {
+    const t = textList.find((x) => x.id === "boy_house");
+    const store = memoryStore();
+    await mountText("boy_house", { store });
+    const wrong = choices().find((b) => b.textContent !== t.question.options[0]);
+    wrong.click();
+    assert.equal($(".feedback .verdict").textContent, "Not quite.");
+    assert.ok(text().includes(`The answer is: ${t.question.options[0]}.`));
+    assert.ok(text().includes(t.question.note));
+    assert.ok(wrong.classList.contains("chosen") && rightButton(t).classList.contains("correct"));
+    assert.deepEqual([...store.meta.keys()], ["read.textsOpened"], "only the Up next marker is saved; no answer is stored");
+    assert.ok(!/red|penalt|lost|lives/i.test($(".feedback").textContent));
+  });
+
+  it("only the first answer counts: pressing another option afterwards changes nothing", async () => {
+    const t = textList.find((x) => x.id === "mother_here");
+    await mountText("mother_here");
+    const wrong = choices().find((b) => b.textContent !== t.question.options[0]);
+    wrong.click();
+    const before = $(".feedback").textContent;
+    rightButton(t).disabled = false; // even if a button were somehow pressable, the first answer stands
+    rightButton(t).click();
+    assert.equal($(".feedback").textContent, before);
+    assert.equal($(".feedback .verdict").textContent, "Not quite.");
+  });
+
+  it("without an Arabic voice there is a clear note, reading and the question still work, and Hear whole text is off", async () => {
+    const t = textList.find((x) => x.id === "bread_water");
+    await mountText("bread_water", { speech: fakeSpeech({ ok: false }) });
+    assert.ok($(".note")?.textContent.includes("No Arabic voice is installed."));
+    assert.equal($$("button").find((b) => b.textContent === "Hear whole text").disabled, true);
+    sentences()[0].click();
+    assert.equal(sentences()[0].querySelector(".bubble-detail").hidden, false);
+    rightButton(t).click();
+    assert.equal($(".feedback .verdict").textContent, "Yes!");
+  });
+
+  it("nothing is spoken until a button is pressed; a speaker says only its sentence; Hear whole text says all in order", async () => {
+    const { speech } = await mountText("hot_day");
+    const t = textList.find((x) => x.id === "hot_day");
+    assert.equal(speech.said.length, 0);
+    $$(".bubble-row .speak-btn")[1].click();
+    await sleep(10);
+    assert.deepEqual(speech.said, [t.sentences[1].ar]);
+    speech.said.length = 0;
+    $$("button").find((b) => b.textContent === "Hear whole text").click();
+    await sleep(30);
+    assert.deepEqual(speech.said, t.sentences.map((s) => s.ar));
+    assert.ok($$("button").some((b) => b.textContent === "Hear whole text"), "the label is back");
+  });
+
+  it("opening a text moves Up next to the next one, any text can be opened first, and a broken store changes nothing", async () => {
+    const store = memoryStore();
+    await mountText("new_book", { store });
+    await sleep(20);
+    assert.deepEqual(store.meta.get("read.textsOpened"), ["new_book"]);
+    await mountList(store);
+    const rows = $$(".dialogue-row");
+    assert.ok(rows[0].textContent.includes("Up next"), "opening a hard one first does not move the marker past the easy ones");
+    assert.equal(rows.length, 12);
+
+    const broken = { getMeta: async () => { throw new Error("disk full"); }, setMeta: async () => { throw new Error("disk full"); } };
+    await mountText("night_moon", { store: broken });
+    assert.equal(sentences().length, textList.find((t) => t.id === "night_moon").sentences.length, "still readable");
+    await mountList(broken);
+    assert.equal($$(".dialogue-row").length, 12);
+  });
+
+  it("Dialogues and Texts keep their own Up next markers", async () => {
+    const store = memoryStore({ "read.opened": ["greeting"], "read.textsOpened": ["big_house", "cold_water"] });
+    await mountList(store);
+    assert.ok($$(".dialogue-row")[2].textContent.includes("Up next"));
+    const screen = createReadScreen({ h, loadDialogues: async () => dialogueList, loadTexts: async () => textList, store, speech: fakeSpeech() });
+    document.querySelector("#view").replaceChildren(await screen({ parts: ["read"] }));
+    assert.ok($$(".dialogue-row")[1].textContent.includes("Up next"));
+  });
+
+  it("a failed load shows the error instead of a blank screen", async () => {
+    const screen = createReadScreen({ h, loadTexts: async () => { throw new Error("Could not load texts (404)"); }, store: memoryStore(), speech: fakeSpeech() });
+    await assert.rejects(screen({ parts: ["read", "texts"] }), /Could not load texts \(404\)/);
+    await assert.rejects(screen({ parts: ["read", "text", "big_house"] }), /Could not load texts \(404\)/);
   });
 });
 
