@@ -53,7 +53,10 @@ function homeScreen() {
       pair("#/cards/practice", "#/cards"),
       h("h3", { class: "home-topic" }, "Phrases"),
       pair("#/cards/phrases/practice", "#/cards/phrases"),
-      h("a", { class: "btn wide", href: "#/quiz" }, "Take a quiz")));
+      h("h3", { class: "home-topic" }, "Mixed practice"),
+      h("div", { class: "btn-pair" },
+        h("a", { class: "btn", href: "#/quiz" }, "Take a quiz"),
+        h("a", { class: "btn secondary", href: "#/match" }, "Match"))));
 }
 
 const lettersScreen = createLettersScreen({ h });

@@ -56,7 +56,7 @@ describe("Home", () => {
     assert.ok(!/Due for review/i.test(text()));
     assert.equal($$(".stat").length, 0, "home shows no counts");
     assert.deepEqual($$("#view a").map((a) => a.getAttribute("href")),
-      ["#/options", "#/alphabet/practice", "#/alphabet", "#/cards/practice", "#/cards", "#/cards/phrases/practice", "#/cards/phrases", "#/quiz"]);
+      ["#/options", "#/alphabet/practice", "#/alphabet", "#/cards/practice", "#/cards", "#/cards/phrases/practice", "#/cards/phrases", "#/quiz", "#/match"]);
   });
 
   it("an unknown route falls back to Home", async () => {
@@ -75,20 +75,22 @@ describe("Home", () => {
     const voice = [...welcome.querySelectorAll("a")];
     assert.deepEqual(voice.map((a) => a.textContent), ["Voice options"]);
     assert.ok(voice[0].classList.contains("secondary") && voice[0].getAttribute("href") === "#/options");
-    assert.deepEqual([...practice.querySelectorAll(".home-topic")].map((x) => x.textContent), ["Letters", "Words", "Phrases"]);
+    assert.deepEqual([...practice.querySelectorAll(".home-topic")].map((x) => x.textContent), ["Letters", "Words", "Phrases", "Mixed practice"]);
     const pairs = [...practice.querySelectorAll(".btn-pair")];
-    assert.equal(pairs.length, 3);
+    assert.equal(pairs.length, 4);
     for (const [pair, [practiceHref, browseHref]] of [[pairs[0], ["#/alphabet/practice", "#/alphabet"]], [pairs[1], ["#/cards/practice", "#/cards"]], [pairs[2], ["#/cards/phrases/practice", "#/cards/phrases"]]]) {
       const [p, b] = [...pair.querySelectorAll("a")];
       assert.deepEqual([p.textContent, p.getAttribute("href"), p.classList.contains("secondary")], ["Practice", practiceHref, false]);
       assert.deepEqual([b.textContent, b.getAttribute("href"), b.classList.contains("secondary")], ["Browse", browseHref, true]);
       assert.equal(pair.children.length, 2);
     }
-    const quiz = [...practice.querySelectorAll("a")].find((a) => a.textContent === "Take a quiz");
-    assert.ok(quiz && quiz.classList.contains("wide") && quiz.getAttribute("href") === "#/quiz");
-    assert.equal(practice.querySelectorAll("a").length, 7, "the practice card has only practice, browse and quiz links");
+    const [quiz, matchLink] = [...pairs[3].querySelectorAll("a")];
+    assert.deepEqual([quiz.textContent, quiz.getAttribute("href"), quiz.classList.contains("secondary")], ["Take a quiz", "#/quiz", false]);
+    assert.deepEqual([matchLink.textContent, matchLink.getAttribute("href"), matchLink.classList.contains("secondary")], ["Match", "#/match", true]);
+    assert.equal(pairs[3].children.length, 2);
+    assert.equal(practice.querySelectorAll("a").length, 8, "the practice card has only pairs of links");
     assert.ok(!text().includes("Practice letters") && !text().includes("Browse the words"), "the old long labels are gone");
-    for (const cls of ["home-topic", "btn-pair", "wide"]) assert.ok(new RegExp(`\\.${cls}(?![\\w-])`).test(css), `.${cls} is styled`);
+    for (const cls of ["home-topic", "btn-pair"]) assert.ok(new RegExp(`\\.${cls}(?![\\w-])`).test(css), `.${cls} is styled`);
   });
 
   it("the Voice options route opens its own screen, with Back to Home and no tab highlighted", async () => {
@@ -1324,6 +1326,250 @@ describe("Quiz", () => {
     assert.ok(hasButton("Next", "Finish round"));
     const broken = createQuizScreen({ h, loadLetters: async () => parsedLetters, loadWords: async () => parsedWords, loadPhrases: async () => phraseList, store: { getAllCards: async () => { throw new Error("storage unavailable"); } }, speech: { checkArabic: async () => ({ ok: true }) } });
     await assert.rejects(broken({ parts: ["quiz"] }), /storage unavailable/);
+  });
+});
+
+// ---------------------------------------------------------------------- Match
+
+const matchLogic = await import(path.join(WWW, "match.js"));
+const { createMatchScreen } = await import(path.join(WWW, "match-screen.js"));
+
+describe("Match", () => {
+  const T0 = 1_700_000_000_000;
+  const parsedLetters = alphabet.parseLetters(env.lettersRaw);
+  const parsedWords = vocabLogic.parseVocab(env.vocabRaw);
+  const SCORE_WORDS = /\b(timer|seconds?|faster|quicker|slower|speed|hurry|time limit|score|points?|out of)\b/i;
+
+  function memoryStore(initial = []) {
+    const cards = new Map(initial.map((c) => [c.id, structuredClone(c)]));
+    return {
+      cards, saveError: null,
+      getAllCards: async () => [...cards.values()].map((c) => structuredClone(c)),
+      addCardsIfMissing: async (list) => { let n = 0; for (const c of list) if (!cards.has(c.id)) { cards.set(c.id, structuredClone(c)); n++; } return n; },
+      putCard: async (c) => { if (cards.saveError) throw new Error(cards.saveError); cards.set(c.id, structuredClone(c)); },
+      getMeta: async (_k, f = null) => f,
+      setMeta: async () => {},
+    };
+  }
+
+  function setup({ store = memoryStore(), voice = { ok: true }, seed = 1 } = {}) {
+    const spoken = [];
+    const speech = {
+      checkArabic: async () => voice,
+      speak: async (t) => { if (speech.failing) throw new Error("No Arabic voice"); spoken.push(t); },
+      stop: async () => {},
+      openVoiceInstall: async () => { speech.opened = true; },
+    };
+    const screen = createMatchScreen({
+      h, loadLetters: async () => parsedLetters, loadWords: async () => parsedWords, loadPhrases: async () => phraseList, store, speech,
+      now: () => T0, rng: alphabet.seededRng(seed),
+    });
+    return { store, speech, spoken, mount: async () => { document.querySelector("#view").replaceChildren(await screen({ parts: ["match"] })); await sleep(20); } };
+  }
+
+  const tiles = (side) => [...$$(".match-col")[side].querySelectorAll(".tile")];
+  const meaningOf = (ctx) => new Map([...ctx.store.cards.values()].filter(matchLogic.isMatchable).map((c) => [c.front, c.back]));
+  const tileWith = (side, t) => tiles(side).find((x) => x.textContent === t);
+  const spokenFor = (ctx, ar) => {
+    const card = [...ctx.store.cards.values()].find((c) => matchLogic.isMatchable(c) && c.front === ar);
+    return card.deck === "alphabet" ? parsedLetters.find((l) => l.id === card.extra.letterId).name : ar;
+  };
+  /** Match every Arabic tile still open on the page, the right way. */
+  function matchPage(ctx) {
+    const map = meaningOf(ctx);
+    for (const t of tiles(0).filter((x) => !x.disabled)) {
+      tileWith(0, t.textContent).click();
+      tileWith(1, map.get(t.textContent)).click();
+    }
+  }
+  /** Two tiles that do not go together: the first Arabic tile and the meaning of the second. */
+  function wrongPair(ctx) {
+    const map = meaningOf(ctx);
+    const [a, b] = tiles(0).filter((x) => !x.disabled);
+    tileWith(0, a.textContent).click();
+    tileWith(1, map.get(b.textContent)).click();
+    return [a.textContent, b.textContent];
+  }
+  const cardFor = (ctx, ar) => [...ctx.store.cards.values()].find((c) => matchLogic.isMatchable(c) && c.front === ar);
+  const label = () => $(".practice-head .muted").textContent;
+
+  it("the Match route opens its own screen: Back to Home, no tab highlighted, five Arabic tiles and five meaning tiles", async () => {
+    await go("#/match", () => $(".tile"));
+    audit("match");
+    assert.equal($("#screen-title").textContent, "Match");
+    assert.ok(hasLink("#/"));
+    assert.equal($("[aria-current=page]"), null, "a side screen, not a tab");
+    assert.deepEqual($$(".tabbar a").map((a) => a.textContent), ["Home", "Letters", "Cards", "Read"], "the tab bar is unchanged");
+    assert.equal(tiles(0).length, 5);
+    assert.equal(tiles(1).length, 5);
+    assert.ok(tiles(0).every((t) => t.classList.contains("ar") && t.getAttribute("lang") === "ar"));
+    assert.ok(tiles(1).every((t) => !t.classList.contains("ar")));
+    assert.equal(label(), "Page 1 of 2");
+    assert.ok(text().includes("Tap an Arabic tile, then the tile that goes with it."));
+    assert.ok(!SCORE_WORDS.test(text()));
+    await go("#/match/whatever", () => $(".tile"));
+  });
+
+  it("nothing is spoken on opening, and the two columns are not in the same order", async () => {
+    const ctx = setup();
+    await ctx.mount();
+    assert.equal(ctx.spoken.length, 0);
+    const map = meaningOf(ctx);
+    assert.ok(!tiles(0).every((t, i) => map.get(t.textContent) === tiles(1)[i].textContent), "not lined up straight across");
+  });
+
+  it("a right pair fades out, is spoken, and says nothing negative", async () => {
+    const ctx = setup();
+    await ctx.mount();
+    const map = meaningOf(ctx);
+    const ar = tiles(0)[0].textContent;
+    tileWith(0, ar).click();
+    assert.equal(tileWith(0, ar).getAttribute("aria-pressed"), "true", "the tapped tile is marked");
+    tileWith(1, map.get(ar)).click();
+    await sleep(10);
+    assert.ok(tileWith(0, ar).classList.contains("done") && tileWith(0, ar).disabled);
+    assert.ok(tileWith(1, map.get(ar)).classList.contains("done") && tileWith(1, map.get(ar)).disabled);
+    assert.deepEqual(ctx.spoken, [spokenFor(ctx, ar)]);
+    assert.ok(!text().includes("Not quite."));
+    assert.equal(tiles(0).filter((t) => t.classList.contains("selected")).length, 0);
+  });
+
+  it("a wrong pair resets both tiles, explains what goes with what, speaks it, and grades nothing yet", async () => {
+    const ctx = setup();
+    await ctx.mount();
+    const map = meaningOf(ctx);
+    const [a, b] = wrongPair(ctx);
+    await sleep(10);
+    assert.ok(text().includes("Not quite."));
+    assert.ok(text().includes(`${a} goes with ${map.get(a)}.`));
+    assert.ok(text().includes(`${map.get(b)} goes with ${b}.`));
+    assert.ok(tiles(0).concat(tiles(1)).every((t) => !t.classList.contains("done") && !t.classList.contains("selected") && !t.disabled));
+    assert.deepEqual(ctx.spoken, [spokenFor(ctx, a)]);
+    assert.equal(cardFor(ctx, a).lastReviewed, null, "nothing is graded until the item is finished");
+    assert.ok(!SCORE_WORDS.test(text()));
+    audit("match wrong pair");
+  });
+
+  it("tapping a second tile on the same side swaps the choice; tapping the chosen tile lets it go", async () => {
+    const ctx = setup();
+    await ctx.mount();
+    const [first, second] = tiles(0);
+    first.click();
+    tileWith(0, second.textContent).click();
+    assert.deepEqual(tiles(0).map((t) => t.getAttribute("aria-pressed")), ["false", "true", "false", "false", "false"]);
+    tileWith(0, second.textContent).click();
+    assert.ok(tiles(0).every((t) => t.getAttribute("aria-pressed") === "false"));
+    assert.equal(ctx.spoken.length, 0, "choosing a tile alone speaks nothing");
+  });
+
+  it("a clean round: Next page, Page 2 of 2, Finish round, then a plain summary, and every item graded good", async () => {
+    const ctx = setup();
+    await ctx.mount();
+    matchPage(ctx);
+    await sleep(10);
+    assert.ok(tiles(0).concat(tiles(1)).every((t) => t.classList.contains("done")), "the finished page stays on screen, faded");
+    assert.ok(hasButton("Next page"));
+    assert.equal(label(), "Page 1 of 2", "it waits for the learner");
+    clickButton("Next page");
+    assert.equal(label(), "Page 2 of 2");
+    assert.ok(tiles(0).every((t) => !t.classList.contains("done")));
+    matchPage(ctx);
+    await sleep(10);
+    assert.ok(hasButton("Finish round"));
+    clickButton("Finish round");
+    assert.ok(text().includes("Round complete"));
+    assert.ok(text().includes("All 10 pairs matched."));
+    assert.ok(!SCORE_WORDS.test(text()));
+    assert.ok(hasButton("Keep going") && hasLink("#/"));
+    audit("match summary");
+    const graded = [...ctx.store.cards.values()].filter((c) => c.lastReviewed !== null);
+    assert.equal(graded.length, 10);
+    assert.ok(graded.every((c) => c.reps === 1 && c.lapses === 0), "all graded good");
+    assert.equal(ctx.spoken.length, 10);
+  });
+
+  it("a mix-up brings both items back on one short extra page and grades them again", async () => {
+    const ctx = setup();
+    await ctx.mount();
+    const [a, b] = wrongPair(ctx);
+    matchPage(ctx);
+    await sleep(10);
+    clickButton("Next page");
+    matchPage(ctx);
+    await sleep(10);
+    assert.ok(hasButton("Keep going"), "not Finish: there is one more look");
+    clickButton("Keep going");
+    assert.equal(label(), "Another look");
+    assert.deepEqual(new Set(tiles(0).map((t) => t.textContent)), new Set([a, b]));
+    assert.equal(tiles(1).length, 2);
+    matchPage(ctx);
+    await sleep(10);
+    clickButton("Finish round");
+    assert.ok(text().includes("All 10 pairs matched."));
+    assert.equal(cardFor(ctx, a).lapses, 1);
+    assert.equal(cardFor(ctx, b).lapses, 1);
+    const others = [...ctx.store.cards.values()].filter((c) => c.lastReviewed !== null && ![cardFor(ctx, a).id, cardFor(ctx, b).id].includes(c.id));
+    assert.equal(others.length, 8);
+    assert.ok(others.every((c) => c.lapses === 0 && c.reps === 1));
+    assert.ok(!/missed|penalty|behind/i.test(text()));
+  });
+
+  it("Keep going on the summary starts a fresh round, so there is always more to match", async () => {
+    const ctx = setup();
+    await ctx.mount();
+    matchPage(ctx); clickButton("Next page"); matchPage(ctx); await sleep(10); clickButton("Finish round");
+    clickButton("Keep going");
+    await sleep(20);
+    assert.equal(label(), "Page 1 of 2");
+    assert.equal(tiles(0).length, 5);
+  });
+
+  it("without an Arabic voice a note appears and matching still works", async () => {
+    const ctx = setup({ voice: { ok: false, code: "no-arabic-voice", message: "No Arabic voice is installed." } });
+    await ctx.mount();
+    assert.ok($(".note")?.textContent.includes("No Arabic voice is installed."));
+    $$("button").find((b) => b.textContent === "Open voice settings").click();
+    assert.equal(ctx.speech.opened, true);
+    matchPage(ctx);
+    await sleep(10);
+    assert.ok(hasButton("Next page"));
+  });
+
+  it("a speech failure never gets in the way", async () => {
+    const ctx = setup();
+    ctx.speech.failing = true;
+    await ctx.mount();
+    matchPage(ctx);
+    await sleep(10);
+    assert.ok(hasButton("Next page"));
+    assert.ok(!/error|wrong/i.test(text().replace(/Something went wrong/g, "")));
+  });
+
+  it("a failed save becomes a small message and the round carries on; a failed load rejects", async () => {
+    const store = memoryStore();
+    store.cards.saveError = "disk full";
+    const ctx = setup({ store });
+    await ctx.mount();
+    matchPage(ctx);
+    await sleep(20);
+    assert.ok(text().includes("Could not save this answer: disk full"));
+    assert.ok(hasButton("Next page"));
+    const broken = createMatchScreen({ h, loadLetters: async () => parsedLetters, loadWords: async () => parsedWords, loadPhrases: async () => phraseList, store: { getAllCards: async () => { throw new Error("storage unavailable"); } }, speech: { checkArabic: async () => ({ ok: true }) } });
+    await assert.rejects(broken({ parts: ["match"] }), /storage unavailable/);
+  });
+
+  it("the weakest items are picked first even when nothing is scheduled", async () => {
+    const seen = [...parsedLetters.slice(0, 5).flatMap((l) => alphabet.cardsForLetter(l, T0)),
+      ...vocabLogic.cardsForSet(parsedWords, 1, T0), ...phraseLogic.cardsForSet(phraseList, 1, T0)]
+      .map((c) => ({ ...c, lastReviewed: T0 - 1000, reps: 1, interval: 1, due: T0 + 9e9 })); // none ready, none mastered: no other group or set is added
+    const weak = seen.find((c) => c.deck === "vocab" && c.extra.kind === "ar2en" && c.extra.wordId === parsedWords[9].id);
+    weak.ease = 1.3; weak.lapses = 6; weak.reps = 0;
+    const ctx = setup({ store: memoryStore(seen) });
+    await ctx.mount();
+    const all = tiles(0).map((t) => t.textContent); // a round shows 5 per page: look at both pages
+    matchPage(ctx); await sleep(10); clickButton("Next page");
+    all.push(...tiles(0).map((t) => t.textContent));
+    assert.ok(all.includes(parsedWords[9].ar), "the weakest word is in the round");
   });
 });
 

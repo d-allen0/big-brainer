@@ -153,7 +153,7 @@ export function createMatchScreen({
       feedback.replaceChildren();
       say(left);
       for (const { id, grade } of res.grades) {
-        const updated = srs.review(latest.get(id), grade, now());
+        const updated = srs.review(latest.get(id), srs.GRADES[grade], now()); // match.js names grades; srs wants the number
         latest.set(id, updated);
         store.putCard(updated).catch((err) => {
           feedback.append(h("p", { class: "muted small" }, "Could not save this answer: " + err.message));
