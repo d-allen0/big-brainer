@@ -384,12 +384,16 @@ for (const { w, h } of SIZES) {
       // What goes with what, from the shipped data (a letter pairs with its name card).
       const partner = {};
       for (const l of letters) partner[l.char] = `${l.name} (${l.nameEn})`;
-      for (const f of ["vocab.json", "phrases.json"]) {
+      const arabicOf = { "/letters": new Set(letters.map((l) => l.char)) };
+      for (const [f, route] of [["vocab.json", "/words"], ["phrases.json", "/phrases"]]) {
         const data = JSON.parse(fs.readFileSync(path.join(WWW, f), "utf8"));
-        for (const item of data.words ?? data.phrases) partner[item.ar] = item.en;
+        arabicOf[route] = new Set();
+        for (const item of data.words ?? data.phrases) { partner[item.ar] = item.en; arabicOf[route].add(item.ar); }
       }
 
-      for (const font of [null, "FreeMono"]) it(`five pairs per page fit, a wrong pair's note fits, Next page is reachable, over several rounds${font ? ` (taller font: ${font})` : ""}`, async () => {
+      // The mixed round (#/match) and each one-deck round. One-deck rounds run 2 rounds to keep this quick.
+      for (const route of ["", "/letters", "/words", "/phrases"]) for (const font of [null, "FreeMono"]) it(`${route ? `${route.slice(1)} only: ` : ""}five pairs per page fit, a wrong pair's note fits, Next page is reachable, over several rounds${font ? ` (taller font: ${font})` : ""}`, async () => {
+        const rounds = route ? 2 : 4;
         const ctx = await browser.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: 2, hasTouch: true, isMobile: true, bypassCSP: !!font });
         const page = await ctx.newPage();
         if (withVoice) await page.addInitScript(FAKE_TTS);
@@ -425,15 +429,16 @@ for (const { w, h } of SIZES) {
         };
         try {
           await page.addInitScript(() => { let s = 4242; Math.random = () => ((s = (s * 1664525 + 1013904223) % 4294967296) / 4294967296); });
-          await page.goto(`${base}#/match`);
+          await page.goto(`${base}#/match${route}`);
           await page.waitForSelector(".tile");
           await style();
           await page.waitForTimeout(120);
           let sawRetry = false;
-          for (let round = 0; round < 4; round++) {
+          for (let round = 0; round < rounds; round++) {
             for (let guard = 0; guard < 4; guard++) {
               await page.waitForSelector(".tile");
               checkFits(await m0(), `round ${round + 1} page`);
+              if (route) assert.ok((await openArabic()).every((t) => arabicOf[route].has(t)), `${route}: every Arabic tile belongs to that deck`);
 
               // A wrong pair: the two-line note must fit with the tiles on screen.
               if (round === 0 || round === 2) {
