@@ -631,7 +631,7 @@ for (const { w, h } of SIZES) {
             if (font) await page.addStyleTag({ content: `body, a, button { font-family: "${font}" !important; }` });
             await page.waitForTimeout(150);
             const m = await page.evaluate(() => {
-              const box = (e) => { const r = e.getBoundingClientRect(); return { top: r.top, left: r.left, right: r.right, w: r.width, h: r.height }; };
+              const box = (e) => { const r = e.getBoundingClientRect(); return { top: r.top, left: r.left, right: r.right, w: r.width, h: r.height, clipped: e.scrollWidth > e.clientWidth + 1 }; };
               const welcome = document.querySelector("#view .card");
               const voice = [...welcome.querySelectorAll("a")].find((a) => a.textContent === "Voice options");
               return {
@@ -643,12 +643,16 @@ for (const { w, h } of SIZES) {
             });
             assert.ok(m.docW <= m.vw, `no horizontal overflow (${m.docW} vs ${m.vw})`);
             assert.equal(m.pairs.length, 4, "Letters, Words, Phrases and Quiz | Match");
-            for (const [a, b] of m.pairs) {
-              assert.equal(Math.round(a.top), Math.round(b.top), "Practice and Browse are on the same row");
-              assert.ok(a.right <= b.left, "Practice is left of Browse");
-              assert.ok(Math.abs(a.w - b.w) < 2, `equal widths (${a.w} vs ${b.w})`);
-              assert.ok(a.h >= 44 && b.h >= 44, "each button is at least 44px tall");
-              assert.ok(a.left >= 0 && b.right <= m.vw, "both fit on screen");
+            const widths = m.pairs.map((row) => row.length);
+            assert.deepEqual(widths, [3, 3, 3, 2], "Letters, Words and Phrases are Practice | Browse | Match; Mixed is a pair");
+            for (const row of m.pairs) {
+              assert.equal(new Set(row.map((b) => Math.round(b.top))).size, 1, "every button of a row is on the same line");
+              for (let i = 1; i < row.length; i++) assert.ok(row[i - 1].right <= row[i].left, "buttons are left to right, not overlapping");
+              const ws = row.map((b) => b.w);
+              assert.ok(Math.max(...ws) - Math.min(...ws) < 2, `equal widths (${ws.join(", ")})`);
+              assert.ok(row.every((b) => b.h >= 44), "each button is at least 44px tall");
+              assert.ok(row[0].left >= 0 && row[row.length - 1].right <= m.vw, "the whole row fits on screen");
+              assert.ok(row.every((b) => !b.clipped), "no button label is cut off");
             }
             assert.ok(m.voice && m.voice.h >= 44, "Voice options is in the Welcome card and big enough");
             assert.ok(m.quiz.h >= 44 && m.quiz.left >= 0 && m.quiz.right <= m.vw);
