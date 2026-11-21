@@ -380,6 +380,84 @@ for (const { w, h } of SIZES) {
       });
     });
 
+    describe(`Texts at ${tag}`, { skip }, () => {
+      const firstArabic = Object.fromEntries(JSON.parse(fs.readFileSync(path.join(WWW, "texts.json"), "utf8")).texts.map((t) => [t.id, t.sentences[0].ar]));
+      for (const font of [null, "FreeMono"]) it(`the switch, the list and every text fit sideways; sentences, the question, its answer note and Hear whole text can all be reached${font ? ` (taller font: ${font})` : ""}`, async () => {
+        const ctx = await browser.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: 2, hasTouch: true, isMobile: true, bypassCSP: !!font });
+        const page = await ctx.newPage();
+        if (withVoice) await page.addInitScript(FAKE_TTS);
+        const errors = [];
+        page.on("pageerror", (e) => errors.push(e.message));
+        const style = () => font ? page.addStyleTag({ content: `body, a, button, .ar { font-family: "${font}" !important; }` }) : null;
+        const box = `(e) => { const r = e.getBoundingClientRect(); return { top: r.top, bottom: r.bottom, left: r.left, right: r.right, w: r.width, h: r.height }; }`;
+        try {
+          // The switch and the list, on both Read pages.
+          for (const [route, rows] of [["#/read", 6], ["#/read/texts", 12]]) {
+            await page.goto(`${base}${route}`);
+            await page.waitForSelector(".dialogue-row");
+            await style();
+            await page.waitForTimeout(100);
+            const m = await page.evaluate((src) => {
+              const box = eval(src);
+              return { docW: document.documentElement.scrollWidth, vw: innerWidth, nav: [...document.querySelectorAll(".segmented a")].map(box), rows: [...document.querySelectorAll(".dialogue-row")].map(box) };
+            }, box);
+            assert.equal(m.rows.length, rows);
+            assert.ok(m.docW <= m.vw, `${route}: no horizontal overflow (${m.docW} vs ${m.vw})`);
+            assert.equal(m.nav.length, 2);
+            assert.ok(m.nav.every((b) => b.h >= 44 && b.left >= 0 && b.right <= m.vw), `${route}: the switch is big enough and on screen`);
+            assert.ok(Math.abs(m.nav[0].w - m.nav[1].w) < 2, `${route}: the two switch halves are equal`);
+            assert.equal(Math.round(m.nav[0].top), Math.round(m.nav[1].top), `${route}: the switch is on one line`);
+            assert.ok(m.rows.every((r) => r.h >= 44 && r.left >= 0 && r.right <= m.vw), `${route}: rows are big enough and on screen`);
+          }
+
+          const ids = await page.$$eval(".dialogue-row", (as) => as.map((a) => a.getAttribute("href").split("/").pop()));
+          assert.equal(ids.length, 12);
+          for (const id of ids) {
+            await page.goto(`${base}#/read/text/${id}`);
+            // The title changes before the new screen replaces the old one, so wait for THIS text's own Arabic.
+            await page.waitForFunction((ar) => document.querySelector(".bubble-ar")?.textContent === ar && !document.querySelector(".choice:disabled"), firstArabic[id]);
+            await style();
+            // Open every sentence: the worst case for height and width.
+            for (const b of await page.$$(".bubble")) await b.click();
+            await page.waitForTimeout(60);
+            const measure = () => page.evaluate((src) => {
+              const box = eval(src);
+              const hear = [...document.querySelectorAll("button")].find((b) => /Hear whole text/.test(b.textContent));
+              return {
+                docW: document.documentElement.scrollWidth, vw: innerWidth,
+                tabTop: box(document.querySelector(".tabbar")).top, topBottom: box(document.querySelector(".topbar")).bottom,
+                actionsTop: box(document.querySelector(".actions-bar")).top,
+                bubbles: [...document.querySelectorAll(".bubble")].map(box),
+                speakers: [...document.querySelectorAll(".bubble-row .speak-btn")].map(box),
+                choices: [...document.querySelectorAll(".choice")].map(box),
+                feedback: box(document.querySelector(".feedback")),
+                hear: box(hear),
+              };
+            }, box);
+            let m = await measure();
+            assert.ok(m.docW <= m.vw, `${id}: no horizontal overflow (${m.docW} vs ${m.vw})`);
+            assert.ok(m.bubbles.every((b) => b.left >= 0 && b.right <= m.vw && b.w >= m.vw * 0.5), `${id}: sentences stay on screen and are wide enough to read`);
+            assert.ok(m.speakers.every((b) => b.h >= 32 && b.left >= 0 && b.right <= m.vw), `${id}: speaker buttons fit`);
+            assert.ok(m.choices.length >= 3 && m.choices.every((b) => b.h >= 40 && b.left >= 0 && b.right <= m.vw), `${id}: options are big enough and on screen`);
+            assert.ok(m.hear.h >= 40 && m.hear.bottom <= m.tabTop + 0.5 && m.hear.top >= m.topBottom - 0.5, `${id}: Hear whole text is pinned above the tab bar`);
+
+            // Answer wrongly, then scroll to the very bottom: the last option and the whole note must sit above the pinned bar.
+            const wrong = (await page.$$(".choice"))[0];
+            await wrong.click();
+            await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+            await page.evaluate(() => document.querySelector("main")?.scrollTo?.(0, 1e6));
+            await page.waitForTimeout(60);
+            m = await measure();
+            assert.ok(m.choices.every((b) => b.bottom <= m.actionsTop + 0.5), `${id}: every option can be scrolled clear of the pinned bar (${Math.max(...m.choices.map((b) => b.bottom))} vs ${m.actionsTop})`);
+            assert.ok(m.feedback.bottom <= m.actionsTop + 0.5, `${id}: the answer note can be scrolled clear of the pinned bar (${m.feedback.bottom} vs ${m.actionsTop})`);
+          }
+          assert.deepEqual(errors, []);
+        } finally {
+          await ctx.close();
+        }
+      });
+    });
+
     describe(`Match at ${tag}`, { skip }, () => {
       // What goes with what, from the shipped data (a letter pairs with its name card).
       const partner = {};
