@@ -50,6 +50,16 @@ describe("match: picking the round", () => {
     assert.ok(picked.every(M.isMatchable));
   });
 
+  it("alternates decks so each page of 5 is a mix, with at most 2 phrases per page", () => {
+    const picked = M.pickMatchCards({ cards: allCards, now: T0 });
+    assert.deepEqual(picked.map((c) => c.deck), ["alphabet", "vocab", "phrase", "alphabet", "vocab", "phrase", "alphabet", "vocab", "phrase", "alphabet"]);
+    for (const page of M.pagesOf(picked)) {
+      assert.ok(page.filter((c) => c.deck === "phrase").length <= 2);
+      assert.ok(page.some((c) => c.deck === "alphabet"));
+    }
+    assert.deepEqual(M.spreadDecks([]), []);
+  });
+
   it("no two picks share Arabic or a meaning", () => {
     const picked = M.pickMatchCards({ cards: allCards, now: T0 });
     assert.equal(new Set(picked.map((c) => c.front)).size, 10);

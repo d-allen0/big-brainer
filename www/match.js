@@ -59,6 +59,17 @@ export function pickMatchCards({ cards, now, size = MATCH_SIZE }) {
   while (out.length < size && DECK_ORDER.some((d) => lists[d].length)) {
     for (const deck of DECK_ORDER) take(deck, 1);
   }
+  return spreadDecks(out);
+}
+
+/**
+ * Reorder so the decks alternate (letter, word, phrase, letter, ...). The round is cut into pages of 5,
+ * so each page gets a mix and no page ends up with all the long phrases.
+ */
+export function spreadDecks(cards) {
+  const lists = DECK_ORDER.map((deck) => cards.filter((c) => c.deck === deck));
+  const out = [];
+  for (let i = 0; out.length < cards.length; i++) for (const list of lists) if (list[i]) out.push(list[i]);
   return out;
 }
 
