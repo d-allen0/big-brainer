@@ -18,6 +18,8 @@ import * as db from "./db.js";
 import * as tts from "./tts.js";
 
 const DECKS = [alphabet.DECK, vocab.DECK, phrasesMod.DECK];
+// Route segment after "match" -> the one deck a round is drawn from (anything else: a mixed round).
+const DECK_ROUTES = { letters: [alphabet.DECK, "Match letters"], words: [vocab.DECK, "Match words"], phrases: [phrasesMod.DECK, "Match phrases"] };
 const LONG_TEXT = 16; // tiles with longer text are set a little smaller
 
 /**
@@ -50,8 +52,9 @@ export function createMatchScreen({
     return h("div", { class: "note", role: "status" }, ...kids);
   }
 
-  async function matchView(setTitle) {
-    setTitle("Match");
+  async function matchView(setTitle, route) {
+    const [deck, title] = Object.hasOwn(DECK_ROUTES, route) ? DECK_ROUTES[route] : [null, "Match"];
+    setTitle(title);
     const [letters, words, phrases] = await Promise.all([loadLetters(), loadWords(), loadPhrases()]);
     const voice = await speech.checkArabic().catch(() => ({ ok: false }));
 
@@ -80,10 +83,12 @@ export function createMatchScreen({
     async function startRound() {
       let cards = await freshCards();
       // Always something to match: seed the suggested group and sets. Progress is never overwritten.
-      await store.addCardsIfMissing(quiz.seedForQuiz({ cards, letters, words, phrases, now: now() }));
+      await store.addCardsIfMissing(deck
+        ? match.seedForDeck({ deck, cards, letters, words, phrases, now: now() })
+        : quiz.seedForQuiz({ cards, letters, words, phrases, now: now() }));
       cards = await freshCards();
       latest = new Map(cards.map((c) => [c.id, c]));
-      const picked = match.pickMatchCards({ cards, now: now() });
+      const picked = match.pickMatchCards({ cards, now: now(), deck });
       selection = { left: null, right: null };
       awaiting = null;
 
@@ -197,7 +202,7 @@ export function createMatchScreen({
     return root;
   }
 
-  return async function render({ setTitle = () => {} } = {}) {
-    return matchView(setTitle);
+  return async function render({ setTitle = () => {}, parts = [] } = {}) {
+    return matchView(setTitle, parts[1]);
   };
 }

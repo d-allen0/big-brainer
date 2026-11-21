@@ -1364,7 +1364,7 @@ describe("Match", () => {
       h, loadLetters: async () => parsedLetters, loadWords: async () => parsedWords, loadPhrases: async () => phraseList, store, speech,
       now: () => T0, rng: alphabet.seededRng(seed),
     });
-    return { store, speech, spoken, mount: async () => { document.querySelector("#view").replaceChildren(await screen({ parts: ["match"] })); await sleep(20); } };
+    return { store, speech, spoken, mount: async (route) => { document.querySelector("#view").replaceChildren(await screen({ parts: route ? ["match", route] : ["match"] })); await sleep(20); } };
   }
 
   const tiles = (side) => [...$$(".match-col")[side].querySelectorAll(".tile")];
@@ -1408,6 +1408,85 @@ describe("Match", () => {
     assert.ok(text().includes("Tap an Arabic tile, then the tile that goes with it."));
     assert.ok(!SCORE_WORDS.test(text()));
     await go("#/match/whatever", () => $(".tile"));
+  });
+
+  describe("one deck at a time", () => {
+    const DECK_OF = { letters: "alphabet", words: "vocab", phrases: "phrase" };
+    const TITLE = { letters: "Match letters", words: "Match words", phrases: "Match phrases" };
+    const arabicDecks = (ctx) => new Set([...tiles(0), ...tiles(1)].length ? tiles(0).map((t) => cardFor(ctx, t.textContent)?.deck) : []);
+
+    for (const route of Object.keys(DECK_OF)) {
+      it(`#/match/${route} gives a full round of ${route} only, and grades into that deck`, async () => {
+        const ctx = setup();
+        await ctx.mount(route);
+        assert.equal(tiles(0).length, 5);
+        assert.deepEqual([...arabicDecks(ctx)], [DECK_OF[route]]);
+        assert.equal(label(), "Page 1 of 2");
+        assert.ok(!SCORE_WORDS.test(text()));
+        matchPage(ctx); clickButton("Next page"); matchPage(ctx); await sleep(10);
+        assert.ok(text().includes("Finish round") || text().includes("Keep going"));
+        clickButton(text().includes("Finish round") ? "Finish round" : "Keep going");
+        assert.ok(text().includes("All 10 pairs matched."));
+        const graded = [...ctx.store.cards.values()].filter((c) => c.deck === DECK_OF[route] && c.reps > 0);
+        assert.equal(graded.length, 10);
+        assert.ok([...ctx.store.cards.values()].filter((c) => c.reps > 0).every((c) => c.deck === DECK_OF[route]));
+      });
+    }
+
+    it("letters fill from the next groups: ten different letters, and nothing is blocked or warned about", async () => {
+      const ctx = setup();
+      await ctx.mount("letters");
+      const groups = new Set([...ctx.store.cards.values()].map((c) => c.extra.group));
+      assert.ok(groups.size > 1, "more than the first group was seeded");
+      assert.ok(!/far ahead|too hard|may feel hard/i.test(text()), "no heads-up on this screen");
+      matchPage(ctx); clickButton("Next page"); matchPage(ctx); await sleep(10);
+      clickButton("Finish round");
+      assert.ok(text().includes("All 10 pairs matched."));
+    });
+
+    it("with progress already stored in every deck, each route still shows only its own deck", async () => {
+      const everything = [...alphabet.cardsForGroup(parsedLetters, 1, T0), ...vocabLogic.cardsForSet(parsedWords, 1, T0), ...phraseLogic.cardsForSet(phraseList, 1, T0)];
+      for (const route of Object.keys(DECK_OF)) {
+        const ctx = setup({ store: memoryStore(everything) });
+        await ctx.mount(route);
+        assert.deepEqual([...arabicDecks(ctx)], [DECK_OF[route]], route);
+      }
+    });
+
+    it("an unknown deck in the route is a normal mixed round", async () => {
+      const ctx = setup();
+      await ctx.mount("nope");
+      assert.equal(new Set(tiles(0).map((t) => cardFor(ctx, t.textContent).deck)).size, 3);
+    });
+
+    it("Keep going on the summary starts another round of the same deck", async () => {
+      const ctx = setup();
+      await ctx.mount("words");
+      matchPage(ctx); clickButton("Next page"); matchPage(ctx); await sleep(10); clickButton("Finish round");
+      clickButton("Keep going"); await sleep(20);
+      assert.equal(tiles(0).length, 5);
+      assert.deepEqual([...arabicDecks(ctx)], ["vocab"]);
+    });
+
+    it("saved progress is untouched by seeding: a weak stored card comes first", async () => {
+      const seed = setup();
+      await seed.mount("phrases");
+      const first = [...seed.store.cards.values()].find((c) => matchLogic.isMatchable(c));
+      const store = memoryStore([{ ...first, reps: 0, lapses: 4, due: T0 - 5000 }]);
+      const ctx = setup({ store });
+      await ctx.mount("phrases");
+      assert.ok(tiles(0).some((t) => t.textContent === first.front));
+      assert.equal(store.cards.get(first.id).lapses, 4);
+    });
+
+    it("the route opens through the real app for each deck", async () => {
+      for (const route of Object.keys(DECK_OF)) {
+        await go(`#/match/${route}`, () => $(".tile"));
+        audit(`match ${route}`);
+        assert.equal($("#screen-title").textContent, TITLE[route]);
+        assert.equal(tiles(0).length, 5);
+      }
+    });
   });
 
   it("nothing is spoken on opening, and the two columns are not in the same order", async () => {
