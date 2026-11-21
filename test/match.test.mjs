@@ -260,3 +260,66 @@ describe("match: stays pure", () => {
     assert.ok(!words.test(M.pairUp(s, a.id, b.id).note.join(" ")));
   });
 });
+
+describe("match: a round for one deck", () => {
+  const fresh = (deck) => M.seedForDeck({ deck, cards: [], letters, words, phrases, now: T0 });
+  const pick = (deck, cards) => M.pickMatchCards({ cards, now: T0, deck });
+
+  it("each deck gives 10 pairs from that deck only, with nothing stored yet", () => {
+    for (const deck of ["alphabet", "vocab", "phrase"]) {
+      const picked = pick(deck, fresh(deck));
+      assert.equal(picked.length, 10, deck);
+      assert.ok(picked.every((c) => c.deck === deck && M.isMatchable(c)), deck);
+      assert.equal(new Set(picked.map((c) => c.front)).size, 10);
+      assert.equal(new Set(picked.map((c) => c.back)).size, 10);
+    }
+  });
+
+  it("letters fill from the next groups when the first group is short", () => {
+    const g1 = letters.filter((l) => l.group === 1).length;
+    assert.ok(g1 < 10);
+    const seeded = fresh("alphabet");
+    const groups = new Set(seeded.map((c) => c.extra.group));
+    assert.ok(groups.size > 1 && groups.has(1));
+    // The suggested group is seeded in full; later groups only add their matchable name card.
+    assert.ok(seeded.filter((c) => c.extra.group === 1).some((c) => c.extra.kind === "sound"));
+    assert.ok(seeded.filter((c) => c.extra.group > 1).every((c) => c.extra.kind === "name"));
+  });
+
+  it("seeds nothing it does not need, and never returns cards that already exist", () => {
+    const seeded = fresh("vocab");
+    const again = M.seedForDeck({ deck: "vocab", cards: seeded, words, now: T0 });
+    assert.deepEqual(again, []);
+    assert.ok(seeded.length <= 20);
+  });
+
+  it("a stored, weak card comes first and keeps its progress", () => {
+    const seeded = fresh("phrase");
+    const target = seeded.find((c) => c.extra.kind === "ar2en" && c.id.endsWith("ar2en"));
+    const weak = { ...target, reps: 0, lapses: 3, due: T0 - 1000 };
+    const cards = seeded.map((c) => (c.id === weak.id ? weak : c));
+    assert.equal(pick("phrase", cards)[0].id, weak.id);
+    assert.ok(M.seedForDeck({ deck: "phrase", cards, phrases, now: T0 }).every((c) => c.id !== weak.id));
+  });
+
+  it("wraps to earlier groups when the suggested one is near the end", () => {
+    const last = Math.max(...letters.map((l) => l.group));
+    const learned = A.groupsOf(letters).slice(0, last - 1).flat()
+      .flatMap((l) => A.cardsForLetter(l, T0)).map((c) => ({ ...c, reps: 5 }));
+    const seeded = M.seedForDeck({ deck: "alphabet", cards: learned, letters, now: T0 });
+    assert.ok(seeded.length > 0 && seeded.every((c) => c.extra.group <= last));
+    const picked = pick("alphabet", [...learned, ...seeded]);
+    assert.equal(picked.length, 10);
+  });
+
+  it("a deck with no data gives an empty list, and an unknown deck is refused", () => {
+    assert.deepEqual(M.seedForDeck({ deck: "phrase", cards: [], phrases: [], now: T0 }), []);
+    assert.throws(() => M.seedForDeck({ deck: "nope", cards: [], now: T0 }), RangeError);
+    assert.throws(() => pick("nope", allCards), RangeError);
+    assert.deepEqual(pick("vocab", []), []);
+  });
+
+  it("without a deck, rounds are still mixed 4, 3 and 3", () => {
+    assert.deepEqual(byDeck(M.pickMatchCards({ cards: allCards, now: T0 })), { alphabet: 4, vocab: 3, phrase: 3 });
+  });
+});

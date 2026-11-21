@@ -34,17 +34,20 @@ export const toItem = (card) => ({ id: card.id, deck: card.deck, ar: card.front,
  * Choose the cards for one round: weakest first inside each deck (srs.practiceOrder), about 4 letters,
  * 3 words and 3 phrases. No two chosen items share the same Arabic or the same meaning, so every
  * pair has exactly one partner. Never empty while any matchable card exists.
+ * With `deck` set, the round holds only that deck (weakest first, up to `size`).
  */
-export function pickMatchCards({ cards, now, size = MATCH_SIZE }) {
+export function pickMatchCards({ cards, now, size = MATCH_SIZE, deck = null }) {
   if (!Number.isInteger(size) || size < 0) throw new RangeError("size must be a non-negative integer");
-  const pool = cards.filter(isMatchable);
-  const lists = Object.fromEntries(DECK_ORDER.map((deck) => [deck, srs.practiceOrder(pool, now, { deck })]));
+  if (deck !== null && !DECK_ORDER.includes(deck)) throw new RangeError(`unknown deck: ${deck}`);
+  const decks = deck ? [deck] : DECK_ORDER;
+  const pool = cards.filter((c) => isMatchable(c) && (!deck || c.deck === deck));
+  const lists = Object.fromEntries(decks.map((d) => [d, srs.practiceOrder(pool, now, { deck: d })]));
   const usedAr = new Set();
   const usedMeaning = new Set();
   const out = [];
-  const take = (deck, limit) => {
+  const take = (d, limit) => {
     let taken = 0;
-    const list = lists[deck];
+    const list = lists[d];
     while (list.length && taken < limit && out.length < size) {
       const card = list.shift();
       if (usedAr.has(card.front) || usedMeaning.has(card.back)) continue;
@@ -54,12 +57,57 @@ export function pickMatchCards({ cards, now, size = MATCH_SIZE }) {
       taken++;
     }
   };
-  for (const deck of DECK_ORDER) take(deck, QUOTAS[deck]);
+  for (const d of decks) take(d, deck ? size : QUOTAS[d]);
   // Top up from whatever is left, one at a time in deck order, until the round is full.
-  while (out.length < size && DECK_ORDER.some((d) => lists[d].length)) {
-    for (const deck of DECK_ORDER) take(deck, 1);
+  while (out.length < size && decks.some((d) => lists[d].length)) {
+    for (const d of decks) take(d, 1);
   }
   return spreadDecks(out);
+}
+
+/**
+ * Cards to seed so a single-deck round can have `size` pairs: the suggested group or set in full, then
+ * (only if the round is still short) the matchable card of each following group or set, wrapping round to
+ * the earlier ones. Existing cards are never returned, so progress is never touched. Nothing is gated:
+ * this only makes sure there is something to match.
+ */
+export function seedForDeck({ deck, cards, letters = [], words = [], phrases = [], now, size = MATCH_SIZE }) {
+  const specs = {
+    [alphabet.DECK]: {
+      total: alphabet.groupsOf(letters).length,
+      suggested: () => alphabet.suggestedGroup(stored, letters),
+      make: (unit, kinds) => alphabet.cardsForGroup(letters, unit, now, kinds),
+      all: alphabet.KINDS,
+      kinds: ["name"],
+    },
+    [vocab.DECK]: {
+      total: vocab.setCount(words),
+      suggested: () => vocab.suggestedSet(stored, words),
+      make: (unit, kinds) => vocab.cardsForSet(words, unit, now, kinds),
+      all: vocab.KINDS,
+      kinds: ["ar2en"],
+    },
+    [phrasesMod.DECK]: {
+      total: phrasesMod.setCount(phrases),
+      suggested: () => phrasesMod.suggestedSet(stored, phrases),
+      make: (unit, kinds) => phrasesMod.cardsForSet(phrases, unit, now, kinds),
+      all: phrasesMod.KINDS,
+      kinds: ["ar2en"],
+    },
+  };
+  const spec = specs[deck];
+  if (!spec) throw new RangeError(`unknown deck: ${deck}`);
+  const stored = cards.filter((c) => c.deck === deck);
+  if (spec.total === 0) return [];
+  const have = new Set(stored.map((c) => c.id));
+  const first = spec.suggested();
+  const units = Array.from({ length: spec.total }, (_, i) => ((first - 1 + i) % spec.total) + 1);
+  const seeded = [];
+  for (const [i, unit] of units.entries()) {
+    seeded.push(...spec.make(unit, i === 0 ? spec.all : spec.kinds).filter((c) => !have.has(c.id) && !seeded.some((s) => s.id === c.id)));
+    if (pickMatchCards({ cards: [...stored, ...seeded], now, size, deck }).length >= size) break;
+  }
+  return seeded;
 }
 
 /**
