@@ -33,10 +33,12 @@ export function h(tag, attrs = {}, ...children) {
 
 // Home never shows counts, due dates or deadlines: practice is always available.
 function homeScreen() {
-  const pair = (practiceHref, browseHref) =>
+  // One deck's row: Practice | Browse | Match, three equal buttons.
+  const trio = (practiceHref, browseHref, matchHref) =>
     h("div", { class: "btn-pair" },
       h("a", { class: "btn", href: practiceHref }, "Practice"),
-      h("a", { class: "btn secondary", href: browseHref }, "Browse"));
+      h("a", { class: "btn secondary", href: browseHref }, "Browse"),
+      h("a", { class: "btn secondary", href: matchHref }, "Match"));
   return h("div", {},
     h("div", { class: "card" },
       h("h2", {}, "Welcome"),
@@ -48,11 +50,11 @@ function homeScreen() {
       h("h2", {}, "Ready to practice"),
       h("p", {}, "Go at your own pace. Practice as much or as little as you like."),
       h("h3", { class: "home-topic" }, "Letters"),
-      pair("#/alphabet/practice", "#/alphabet"),
+      trio("#/alphabet/practice", "#/alphabet", "#/match/letters"),
       h("h3", { class: "home-topic" }, "Words"),
-      pair("#/cards/practice", "#/cards"),
+      trio("#/cards/practice", "#/cards", "#/match/words"),
       h("h3", { class: "home-topic" }, "Phrases"),
-      pair("#/cards/phrases/practice", "#/cards/phrases"),
+      trio("#/cards/phrases/practice", "#/cards/phrases", "#/match/phrases"),
       h("h3", { class: "home-topic" }, "Mixed practice"),
       h("div", { class: "btn-pair" },
         h("a", { class: "btn", href: "#/quiz" }, "Take a quiz"),

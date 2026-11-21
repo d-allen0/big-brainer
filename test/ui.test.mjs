@@ -56,7 +56,8 @@ describe("Home", () => {
     assert.ok(!/Due for review/i.test(text()));
     assert.equal($$(".stat").length, 0, "home shows no counts");
     assert.deepEqual($$("#view a").map((a) => a.getAttribute("href")),
-      ["#/options", "#/alphabet/practice", "#/alphabet", "#/cards/practice", "#/cards", "#/cards/phrases/practice", "#/cards/phrases", "#/quiz", "#/match"]);
+      ["#/options", "#/alphabet/practice", "#/alphabet", "#/match/letters", "#/cards/practice", "#/cards", "#/match/words",
+        "#/cards/phrases/practice", "#/cards/phrases", "#/match/phrases", "#/quiz", "#/match"]);
   });
 
   it("an unknown route falls back to Home", async () => {
@@ -69,7 +70,7 @@ describe("Home", () => {
     ttsLogic.setPreferences(null); // the rest of the tests use the defaults
   });
 
-  it("Home: Voice options sits in the Welcome card, and Practice | Browse are side by side pairs", async () => {
+  it("Home: Voice options sits in the Welcome card, and each deck has a Practice | Browse | Match row", async () => {
     await go("#/", () => text().includes("Ready to practice"));
     const [welcome, practice] = $$("#view > div > .card");
     const voice = [...welcome.querySelectorAll("a")];
@@ -78,17 +79,18 @@ describe("Home", () => {
     assert.deepEqual([...practice.querySelectorAll(".home-topic")].map((x) => x.textContent), ["Letters", "Words", "Phrases", "Mixed practice"]);
     const pairs = [...practice.querySelectorAll(".btn-pair")];
     assert.equal(pairs.length, 4);
-    for (const [pair, [practiceHref, browseHref]] of [[pairs[0], ["#/alphabet/practice", "#/alphabet"]], [pairs[1], ["#/cards/practice", "#/cards"]], [pairs[2], ["#/cards/phrases/practice", "#/cards/phrases"]]]) {
-      const [p, b] = [...pair.querySelectorAll("a")];
+    for (const [pair, [practiceHref, browseHref, matchHref]] of [[pairs[0], ["#/alphabet/practice", "#/alphabet", "#/match/letters"]], [pairs[1], ["#/cards/practice", "#/cards", "#/match/words"]], [pairs[2], ["#/cards/phrases/practice", "#/cards/phrases", "#/match/phrases"]]]) {
+      const [p, b, m] = [...pair.querySelectorAll("a")];
       assert.deepEqual([p.textContent, p.getAttribute("href"), p.classList.contains("secondary")], ["Practice", practiceHref, false]);
       assert.deepEqual([b.textContent, b.getAttribute("href"), b.classList.contains("secondary")], ["Browse", browseHref, true]);
-      assert.equal(pair.children.length, 2);
+      assert.deepEqual([m.textContent, m.getAttribute("href"), m.classList.contains("secondary")], ["Match", matchHref, true]);
+      assert.equal(pair.children.length, 3);
     }
     const [quiz, matchLink] = [...pairs[3].querySelectorAll("a")];
     assert.deepEqual([quiz.textContent, quiz.getAttribute("href"), quiz.classList.contains("secondary")], ["Take a quiz", "#/quiz", false]);
     assert.deepEqual([matchLink.textContent, matchLink.getAttribute("href"), matchLink.classList.contains("secondary")], ["Match", "#/match", true]);
     assert.equal(pairs[3].children.length, 2);
-    assert.equal(practice.querySelectorAll("a").length, 8, "the practice card has only pairs of links");
+    assert.equal(practice.querySelectorAll("a").length, 11, "the practice card has only rows of links: three trios and one pair");
     assert.ok(!text().includes("Practice letters") && !text().includes("Browse the words"), "the old long labels are gone");
     for (const cls of ["home-topic", "btn-pair"]) assert.ok(new RegExp(`\\.${cls}(?![\\w-])`).test(css), `.${cls} is styled`);
   });
