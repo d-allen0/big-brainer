@@ -1,0 +1,392 @@
+{
+ "note": "Twelve short graded reading texts, easiest first: level 1 is one sentence, level 2 is two or three sentences, level 3 is four to six. They reuse words and phrases from Cards where they can; a few new words appear and their meaning is one tap away. Each text has one comprehension question; the first option in the file is the right one and the app shuffles them. Written by Claude; unreviewed by a fluent speaker.",
+ "reviewed": false,
+ "texts": [
+  {
+   "id": "big_house",
+   "level": 1,
+   "title": "A big house",
+   "sentences": [
+    {
+     "ar": "هَذَا بَيْتٌ كَبِيرٌ.",
+     "tr": "hādhā baytun kabīrun.",
+     "en": "This is a big house."
+    }
+   ],
+   "question": {
+    "prompt": "What is big?",
+    "options": [
+     "The house",
+     "The door",
+     "The book",
+     "The water"
+    ],
+    "answer": 0,
+    "note": "The sentence says baytun kabīrun: a big house."
+   }
+  },
+  {
+   "id": "cold_water",
+   "level": 1,
+   "title": "Cold water",
+   "sentences": [
+    {
+     "ar": "أَنَا أُرِيدُ مَاءً بَارِدًا.",
+     "tr": "anā urīdu māʾan bāridan.",
+     "en": "I want cold water."
+    }
+   ],
+   "question": {
+    "prompt": "What does the speaker want?",
+    "options": [
+     "Cold water",
+     "Hot water",
+     "Bread",
+     "Meat"
+    ],
+    "answer": 0,
+    "note": "māʾan bāridan means cold water."
+   }
+  },
+  {
+   "id": "boy_house",
+   "level": 1,
+   "title": "The boy",
+   "sentences": [
+    {
+     "ar": "الْوَلَدُ فِي الْبَيْتِ.",
+     "tr": "al-waladu fī l-bayti.",
+     "en": "The boy is in the house."
+    }
+   ],
+   "question": {
+    "prompt": "Where is the boy?",
+    "options": [
+     "In the house",
+     "In the city",
+     "At the door",
+     "In the sky"
+    ],
+    "answer": 0,
+    "note": "fī l-bayti means in the house."
+   }
+  },
+  {
+   "id": "mother_here",
+   "level": 1,
+   "title": "My mother",
+   "sentences": [
+    {
+     "ar": "أُمِّي هُنَا.",
+     "tr": "ummī hunā.",
+     "en": "My mother is here."
+    }
+   ],
+   "question": {
+    "prompt": "Who is here?",
+    "options": [
+     "My mother",
+     "My father",
+     "My sister",
+     "My brother"
+    ],
+    "answer": 0,
+    "note": "ummī means my mother, and hunā means here."
+   }
+  },
+  {
+   "id": "ahmad_man",
+   "level": 2,
+   "title": "Ahmad",
+   "sentences": [
+    {
+     "ar": "هَذَا رَجُلٌ.",
+     "tr": "hādhā rajulun.",
+     "en": "This is a man."
+    },
+    {
+     "ar": "اِسْمُهُ أَحْمَدُ.",
+     "tr": "ismuhu aḥmadu.",
+     "en": "His name is Ahmad."
+    },
+    {
+     "ar": "هُوَ فِي الْبَيْتِ.",
+     "tr": "huwa fī l-bayti.",
+     "en": "He is in the house."
+    }
+   ],
+   "question": {
+    "prompt": "What is the man's name?",
+    "options": [
+     "Ahmad",
+     "Layla",
+     "Omar",
+     "Sami"
+    ],
+    "answer": 0,
+    "note": "ismuhu aḥmadu means his name is Ahmad."
+   }
+  },
+  {
+   "id": "layla_girl",
+   "level": 2,
+   "title": "Layla",
+   "sentences": [
+    {
+     "ar": "هَذِهِ بِنْتٌ صَغِيرَةٌ.",
+     "tr": "hādhihi bintun ṣaghīratun.",
+     "en": "This is a small girl."
+    },
+    {
+     "ar": "اِسْمُهَا لَيْلَى.",
+     "tr": "ismuhā laylā.",
+     "en": "Her name is Layla."
+    },
+    {
+     "ar": "هِيَ فِي الْمَدِينَةِ.",
+     "tr": "hiya fī l-madīnati.",
+     "en": "She is in the city."
+    }
+   ],
+   "question": {
+    "prompt": "Where is Layla?",
+    "options": [
+     "In the city",
+     "In the house",
+     "At the door",
+     "In the sky"
+    ],
+    "answer": 0,
+    "note": "hiya fī l-madīnati means she is in the city."
+   }
+  },
+  {
+   "id": "bread_water",
+   "level": 2,
+   "title": "Bread and water",
+   "sentences": [
+    {
+     "ar": "عِنْدِي خُبْزٌ وَمَاءٌ.",
+     "tr": "ʿindī khubzun wa māʾun.",
+     "en": "I have bread and water."
+    },
+    {
+     "ar": "الْخُبْزُ جَيِّدٌ.",
+     "tr": "al-khubzu jayyidun.",
+     "en": "The bread is good."
+    },
+    {
+     "ar": "الْمَاءُ بَارِدٌ.",
+     "tr": "al-māʾu bāridun.",
+     "en": "The water is cold."
+    }
+   ],
+   "question": {
+    "prompt": "What is cold?",
+    "options": [
+     "The water",
+     "The bread",
+     "The house",
+     "The book"
+    ],
+    "answer": 0,
+    "note": "al-māʾu bāridun means the water is cold."
+   }
+  },
+  {
+   "id": "hot_day",
+   "level": 2,
+   "title": "A hot day",
+   "sentences": [
+    {
+     "ar": "الْيَوْمُ حَارٌّ.",
+     "tr": "al-yawmu ḥārrun.",
+     "en": "The day is hot."
+    },
+    {
+     "ar": "الشَّمْسُ فِي السَّمَاءِ.",
+     "tr": "ash-shamsu fī s-samāʾi.",
+     "en": "The sun is in the sky."
+    },
+    {
+     "ar": "أَنَا فِي الْبَيْتِ.",
+     "tr": "anā fī l-bayti.",
+     "en": "I am in the house."
+    }
+   ],
+   "question": {
+    "prompt": "How is the day?",
+    "options": [
+     "Hot",
+     "Cold",
+     "New",
+     "Long"
+    ],
+    "answer": 0,
+    "note": "al-yawmu ḥārrun means the day is hot."
+   }
+  },
+  {
+   "id": "my_family",
+   "level": 3,
+   "title": "My family",
+   "sentences": [
+    {
+     "ar": "هَذِهِ أُسْرَتِي.",
+     "tr": "hādhihi usratī.",
+     "en": "This is my family."
+    },
+    {
+     "ar": "أَبِي رَجُلٌ طَوِيلٌ.",
+     "tr": "abī rajulun ṭawīlun.",
+     "en": "My father is a tall man."
+    },
+    {
+     "ar": "أُمِّي جَمِيلَةٌ.",
+     "tr": "ummī jamīlatun.",
+     "en": "My mother is beautiful."
+    },
+    {
+     "ar": "عِنْدِي أَخٌ وَأُخْتٌ.",
+     "tr": "ʿindī akhun wa ukhtun.",
+     "en": "I have a brother and a sister."
+    },
+    {
+     "ar": "أَخِي كَبِيرٌ وَأُخْتِي صَغِيرَةٌ.",
+     "tr": "akhī kabīrun wa ukhtī ṣaghīratun.",
+     "en": "My brother is big and my sister is small."
+    }
+   ],
+   "question": {
+    "prompt": "Who is tall?",
+    "options": [
+     "The father",
+     "The mother",
+     "The brother",
+     "The sister"
+    ],
+    "answer": 0,
+    "note": "abī rajulun ṭawīlun means my father is a tall man."
+   }
+  },
+  {
+   "id": "ahmad_city",
+   "level": 3,
+   "title": "Ahmad in the city",
+   "sentences": [
+    {
+     "ar": "أَنَا أَحْمَدُ.",
+     "tr": "anā aḥmadu.",
+     "en": "I am Ahmad."
+    },
+    {
+     "ar": "أَنَا فِي الْمَدِينَةِ الْآنَ.",
+     "tr": "anā fī l-madīnati al-āna.",
+     "en": "I am in the city now."
+    },
+    {
+     "ar": "الْمَدِينَةُ كَبِيرَةٌ وَجَمِيلَةٌ.",
+     "tr": "al-madīnatu kabīratun wa jamīlatun.",
+     "en": "The city is big and beautiful."
+    },
+    {
+     "ar": "أَنَا أُحِبُّ هَذِهِ الْمَدِينَةَ.",
+     "tr": "anā uḥibbu hādhihi l-madīnata.",
+     "en": "I love this city."
+    }
+   ],
+   "question": {
+    "prompt": "How is the city?",
+    "options": [
+     "Big and beautiful",
+     "Small and old",
+     "Cold and long",
+     "New and difficult"
+    ],
+    "answer": 0,
+    "note": "al-madīnatu kabīratun wa jamīlatun means the city is big and beautiful."
+   }
+  },
+  {
+   "id": "night_moon",
+   "level": 3,
+   "title": "The night",
+   "sentences": [
+    {
+     "ar": "اللَّيْلُ بَارِدٌ.",
+     "tr": "al-laylu bāridun.",
+     "en": "The night is cold."
+    },
+    {
+     "ar": "الْقَمَرُ فِي السَّمَاءِ.",
+     "tr": "al-qamaru fī s-samāʾi.",
+     "en": "The moon is in the sky."
+    },
+    {
+     "ar": "نُورُهُ جَمِيلٌ.",
+     "tr": "nūruhu jamīlun.",
+     "en": "Its light is beautiful."
+    },
+    {
+     "ar": "نَامَ الْوَلَدُ فِي الْبَيْتِ.",
+     "tr": "nāma l-waladu fī l-bayti.",
+     "en": "The boy slept in the house."
+    }
+   ],
+   "question": {
+    "prompt": "Where is the moon?",
+    "options": [
+     "In the sky",
+     "In the house",
+     "In the city",
+     "On the book"
+    ],
+    "answer": 0,
+    "note": "al-qamaru fī s-samāʾi means the moon is in the sky."
+   }
+  },
+  {
+   "id": "new_book",
+   "level": 3,
+   "title": "A new book",
+   "sentences": [
+    {
+     "ar": "عِنْدِي كِتَابٌ جَدِيدٌ.",
+     "tr": "ʿindī kitābun jadīdun.",
+     "en": "I have a new book."
+    },
+    {
+     "ar": "الْكِتَابُ كَبِيرٌ وَجَمِيلٌ.",
+     "tr": "al-kitābu kabīrun wa jamīlun.",
+     "en": "The book is big and beautiful."
+    },
+    {
+     "ar": "قَرَأْتُ الْكِتَابَ فِي الْبَيْتِ.",
+     "tr": "qaraʾtu l-kitāba fī l-bayti.",
+     "en": "I read the book in the house."
+    },
+    {
+     "ar": "الْكِتَابُ سَهْلٌ.",
+     "tr": "al-kitābu sahlun.",
+     "en": "The book is easy."
+    },
+    {
+     "ar": "أُرِيدُ كِتَابًا آخَرَ.",
+     "tr": "urīdu kitāban ākhara.",
+     "en": "I want another book."
+    }
+   ],
+   "question": {
+    "prompt": "Where did the speaker read the book?",
+    "options": [
+     "In the house",
+     "In the city",
+     "At the door",
+     "In the sky"
+    ],
+    "answer": 0,
+    "note": "qaraʾtu l-kitāba fī l-bayti means I read the book in the house."
+   }
+  }
+ ]
+}
