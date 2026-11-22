@@ -111,7 +111,8 @@ export function createLettersScreen({
       mastery: alphabet.groupMastery(cards, letters),
       lessons,
       lessonMastery: marks.lessonMastery(markCards, lessons),
-      suggestedLesson: lessons.length > 0 ? marks.suggestedLesson(markCards, lessons) : null,
+      // The one "Up next" across groups and Read it lessons (see marks.suggestedStep).
+      step: marks.suggestedStep(alphabet.groupMastery(cards, letters), marks.lessonMastery(markCards, lessons), lessons),
     };
   }
 
@@ -119,7 +120,7 @@ export function createLettersScreen({
 
   function gridView(ctx, setTitle) {
     setTitle("Letters");
-    const { letters, cards, suggested, mastery } = ctx;
+    const { letters, cards, mastery } = ctx;
     const byId = new Map(cards.map((c) => [c.id, c]));
     const cardsOf = (l) => alphabet.cardsForLetter(l, 0).map((c) => byId.get(c.id));
     const learned = (l) => cardsOf(l).every((c) => (c?.reps ?? 0) >= 2);
@@ -140,12 +141,11 @@ export function createLettersScreen({
       h("p", { class: "small" }, "Picks the letters that could use the most practice. Stop whenever you like."));
 
     // A "Read it" step is a full-width link under the group it follows. Every one is always open.
-    // "Up next" shows only once the group before it is well known, and only on the suggested lesson.
+    // "Up next" is one tag on the whole page: the single suggested step (a group or a Read it lesson).
     const readItRow = (lesson) => {
       const ratio = ctx.lessonMastery.find((x) => x.lesson === lesson.id)?.ratio ?? 0;
       const well = ratio >= WELL_KNOWN;
-      const groupKnown = (mastery[lesson.afterGroup - 1]?.ratio ?? 0) >= WELL_KNOWN;
-      const upNext = !well && groupKnown && ctx.suggestedLesson === lesson.id;
+      const upNext = !well && ctx.step.type === "lesson" && ctx.step.lesson === lesson.id;
       return h("a", { class: "dialogue-row", href: `#/readit/${lesson.id}` },
         h("span", { class: "dialogue-title" }, lesson.title),
         h("span", { class: "dialogue-meta" }, `${lesson.items.length} items`),
@@ -159,7 +159,7 @@ export function createLettersScreen({
       return h("section", { class: "card" },
         h("div", { class: "group-head" },
           h("h2", {}, `Group ${n}`),
-          n === suggested && m.ratio < WELL_KNOWN ? h("span", { class: "tag" }, "Up next") : null,
+          ctx.step.type === "group" && ctx.step.group === n && m.ratio < WELL_KNOWN ? h("span", { class: "tag" }, "Up next") : null,
           m.ratio >= WELL_KNOWN ? h("span", { class: "tag quiet" }, "Well known") : null),
         h("div", { class: "letter-grid" },
           group.map((l) =>

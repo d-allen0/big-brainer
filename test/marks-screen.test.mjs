@@ -513,6 +513,59 @@ describe("Read-it: rows on the Letters grid", () => {
     }
   });
 
+  describe("one Up next on the whole page", () => {
+    const upNexts = () => $$("#view .tag:not(.quiet)").filter((t) => t.textContent === "Up next");
+    // Where the single tag is: "group N" or "lesson <id>".
+    const where = () => {
+      const t = upNexts()[0];
+      const row = t.closest(".dialogue-row");
+      if (row) return "lesson " + row.getAttribute("href").replace("#/readit/", "");
+      return t.closest("section").querySelector("h2").textContent.toLowerCase();
+    };
+
+    it("is on group 1 for a new learner, and nowhere else", async () => {
+      await mountGrid();
+      assert.equal(upNexts().length, 1);
+      assert.equal(where(), "group 1");
+    });
+
+    it("moves from a group to its Read it lesson, then on to the next group", async () => {
+      await mountGrid({ store: memoryStore({ cards: learnedGroups([1]) }) });
+      assert.equal(upNexts().length, 1);
+      assert.equal(where(), "lesson short_vowels");
+      await mountGrid({ store: memoryStore({ cards: [...learnedGroups([1]), ...learnedLesson(lesson1)] }) });
+      assert.equal(upNexts().length, 1);
+      assert.equal(where(), "group 2");
+    });
+
+    it("stays on an earlier unfinished step when the learner has jumped ahead", async () => {
+      // Groups 1 and 3 learned, group 2 not: the one suggestion is group 2, not the lesson after group 3.
+      await mountGrid({ store: memoryStore({ cards: [...learnedGroups([1, 3]), ...learnedLesson(lesson1)] }) });
+      assert.equal(upNexts().length, 1);
+      assert.equal(where(), "group 2");
+      assert.equal(tagOf("sukun"), null);
+    });
+
+    it("is exactly one in the app too, and everything stays a link", async () => {
+      await go("#/alphabet", () => $$(".letter-btn").length > 0);
+      assert.equal(upNexts().length, 1);
+      assert.equal(rows().length, 6);
+    });
+
+    it("shows none once everything is well known (nothing is left to suggest), and still never empty of links", async () => {
+      const cards = [...learnedGroups([1, 2, 3, 4, 5, 6, 7, 8]), ...lessons.flatMap(learnedLesson)];
+      await mountGrid({ store: memoryStore({ cards }) });
+      assert.equal(upNexts().length, 0);
+      assert.equal(rows().length, 6);
+    });
+
+    it("is one group tag when the lessons cannot be loaded", async () => {
+      await mountGrid({ loadLessons: async () => { throw new Error("bad data"); } });
+      assert.equal(upNexts().length, 1);
+      assert.equal(where(), "group 1");
+    });
+  });
+
   it("a row opens the lesson in the app", async () => {
     await go("#/alphabet", () => $$(".letter-btn").length > 0);
     rowFor("tanwin").click();
