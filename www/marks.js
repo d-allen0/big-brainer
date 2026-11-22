@@ -208,6 +208,29 @@ export function suggestedLesson(storedCards, lessons, { threshold = 0.8, minReps
   return next ? next.lesson : mastery[mastery.length - 1].lesson;
 }
 
+/**
+ * The one suggested step across the whole path: group 1, the Read it lesson(s) after it,
+ * group 2, group 3, its lesson, and so on. `groupMasteryList` is `alphabet.groupMastery(...)`
+ * and `lessonMasteryList` is `lessonMastery(...)`. Returns `{ type: "group", group }` or
+ * `{ type: "lesson", lesson }`: the first step not yet learned to `threshold`, or the last
+ * step once all are (never empty). Missing lessons just mean a groups-only path.
+ * Only a suggestion; every step stays open.
+ */
+export function suggestedStep(groupMasteryList, lessonMasteryList, lessons, { threshold = 0.8 } = {}) {
+  if (!(threshold > 0 && threshold <= 1)) throw new RangeError("threshold must be in (0, 1]");
+  if (!Array.isArray(groupMasteryList) || groupMasteryList.length === 0) throw new TypeError("groupMasteryList must be a non-empty array");
+  const ratioOfLesson = new Map((lessonMasteryList || []).map((m) => [m.lesson, m.ratio]));
+  const steps = [];
+  for (const g of groupMasteryList) {
+    steps.push({ step: { type: "group", group: g.group }, ratio: g.ratio });
+    for (const l of lessonsAfterGroup(lessons || [], g.group)) {
+      steps.push({ step: { type: "lesson", lesson: l.id }, ratio: ratioOfLesson.get(l.id) ?? 0 });
+    }
+  }
+  const next = steps.find((s) => s.ratio < threshold);
+  return (next || steps[steps.length - 1]).step;
+}
+
 // ---- feedback ----
 
 /**

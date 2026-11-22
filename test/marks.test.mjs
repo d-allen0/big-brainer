@@ -208,6 +208,58 @@ describe("marks: suggested lesson (a suggestion, never a gate)", () => {
   });
 });
 
+describe("marks: suggested step (one Up next across groups and Read it lessons)", () => {
+  const GROUPS = A.groupsOf(letters).length;
+  // Mastery lists with every group and lesson at `ratio`, then specific ones overridden.
+  const gm = (ratio = 0, over = {}) => A.groupMastery([], letters).map((g) => ({ ...g, ratio: over[g.group] ?? ratio }));
+  const lm = (ratio = 0, over = {}) => M.lessonMastery([], lessons).map((m) => ({ ...m, ratio: over[m.lesson] ?? ratio }));
+  const step = (g, l, ls = lessons, opts) => M.suggestedStep(g, l, ls, opts);
+
+  it("starts at group 1 for a brand-new learner", () => {
+    assert.deepEqual(step(gm(), lm()), { type: "group", group: 1 });
+  });
+
+  it("follows the path: group 1, its Read it lesson, group 2, group 3, its lesson", () => {
+    assert.deepEqual(step(gm(0, { 1: 1 }), lm()), { type: "lesson", lesson: "short_vowels" });
+    assert.deepEqual(step(gm(0, { 1: 1 }), lm(0, { short_vowels: 1 })), { type: "group", group: 2 });
+    assert.deepEqual(step(gm(0, { 1: 1, 2: 1 }), lm(0, { short_vowels: 1 })), { type: "group", group: 3 });
+    assert.deepEqual(step(gm(0, { 1: 1, 2: 1, 3: 1 }), lm(0, { short_vowels: 1 })), { type: "lesson", lesson: "sukun" });
+  });
+
+  it("is exactly one step, and the first one below the threshold (0.8 clears, just under does not)", () => {
+    assert.deepEqual(step(gm(0, { 1: 0.8 }), lm(0, { short_vowels: 0.79 })), { type: "lesson", lesson: "short_vowels" });
+    assert.deepEqual(step(gm(0, { 1: 0.8 }), lm(0, { short_vowels: 0.8 })), { type: "group", group: 2 });
+  });
+
+  it("goes back to an earlier unfinished step, not where the learner has jumped to", () => {
+    // Group 5 and its lesson done, but group 2 is not: group 2 is the suggestion.
+    const g = gm(1, { 2: 0.1 });
+    assert.deepEqual(step(g, lm(1)), { type: "group", group: 2 });
+  });
+
+  it("stays on the last step once everything is learned, never empty", () => {
+    const last = step(gm(1), lm(1));
+    assert.deepEqual(last, { type: "lesson", lesson: lessons[lessons.length - 1].id });
+    assert.ok(lessons[lessons.length - 1].afterGroup === GROUPS || lessons[lessons.length - 1].afterGroup < GROUPS);
+  });
+
+  it("falls back to a groups-only path when the lessons are missing", () => {
+    assert.deepEqual(step(gm(0, { 1: 1 }), [], []), { type: "group", group: 2 });
+    assert.deepEqual(step(gm(1), [], []), { type: "group", group: GROUPS });
+    assert.deepEqual(M.suggestedStep(gm(0, { 1: 1 }), undefined, undefined), { type: "group", group: 2 });
+  });
+
+  it("treats a lesson with no mastery entry as not learned", () => {
+    assert.deepEqual(step(gm(0, { 1: 1 }), [], lessons), { type: "lesson", lesson: "short_vowels" });
+  });
+
+  it("checks its inputs", () => {
+    assert.throws(() => step(gm(), lm(), lessons, { threshold: 0 }), RangeError);
+    assert.throws(() => step(gm(), lm(), lessons, { threshold: 1.5 }), RangeError);
+    assert.throws(() => step([], lm()), TypeError);
+  });
+});
+
 describe("marks: feedback", () => {
   const l = lessons[0];
   const [ba, bi] = l.items;
