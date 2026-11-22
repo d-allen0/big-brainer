@@ -31,7 +31,7 @@ The goal is conversation and reading with understanding, ending with reading the
 Priority order. Each item lists what it adds and a rough split into tasks of 3 files or fewer. File names are proposals.
 
 ### P1. Vowel marks and reading rules (Stage 1)
-- **Status:** one path with the letters (a "Read it" step after groups 1, 3, 4, 5, 7 and 8; reading-practice steps after groups 2 and 6 and hamza / alif maqsura come later). Task 1 (data and logic, `marks.json` / `marks.js`) is done. Tasks 2 to 5 below are still to build.
+- **Status:** one path with the letters (a "Read it" step after groups 1, 3, 4, 5, 7 and 8; reading-practice steps after groups 2 and 6 and hamza / alif maqsura come later). Done: task 1 (data and logic, `marks.json` / `marks.js`), task 2a (lesson page and practice screens) and task 2b (a Read it row under each group that has a lesson, with real-Chrome layout checks). Still to build: task 3 (one Up next across groups and steps, an Up next link on Home, Quiz and Match integration), task 4 (sound-contrast drills) and task 5 (letter mnemonics).
 - Lessons for each mark and rule above, each ending in a short quiz, using the existing lesson and practice patterns.
 - Practise on syllables, then real words from vocab.json.
 - Listening drills for confusable sounds: ح/ه/خ, ص/س, ط/ت, ق/ك, ع/ء. Text-to-speech cannot judge the learner's own pronunciation, so these are listen-and-choose.
