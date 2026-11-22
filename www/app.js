@@ -7,6 +7,7 @@ import { createVocabScreen } from "./vocab-screen.js";
 import { createQuizScreen } from "./quiz-screen.js";
 import { createMatchScreen } from "./match-screen.js";
 import { createReadScreen } from "./read-screen.js";
+import { createMarksScreen } from "./marks-screen.js";
 import { createOptionsScreen, PREFS_KEY } from "./options-screen.js";
 import * as tts from "./tts.js";
 import * as db from "./db.js";
@@ -67,6 +68,7 @@ const quizScreen = createQuizScreen({ h });
 const matchScreen = createMatchScreen({ h });
 const optionsScreen = createOptionsScreen({ h });
 const readScreen = createReadScreen({ h });
+const marksScreen = createMarksScreen({ h });
 
 // route name -> { title, render }
 export const screens = {
@@ -77,6 +79,7 @@ export const screens = {
   match: { title: "Match", render: matchScreen },
   options: { title: "Voice options", render: optionsScreen },
   read: { title: "Read", render: readScreen },
+  readit: { title: "Read it", render: marksScreen }, // side screen: lessons after the letter groups
 };
 
 /**
