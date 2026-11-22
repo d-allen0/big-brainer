@@ -151,6 +151,8 @@ Also:
 
 ## 5. Roadmap and status
 
+The detailed content plan (stages, priorities, quality gates) lives in `planning.md`. Keep the two in step: status here, reasoning and order there.
+
 Done: test suite in `test/`, app shell, IndexedDB storage, SM-2 engine, text-to-speech wrapper, alphabet data and logic, pacing foundation, Letters screen (grid, lessons, practice), signing and CI, compact one-screen practice layout, vocab flashcards (100 words, 10 sets, both directions, multiple choice), phrase flashcards (40 phrases, 4 sets, behind a Words | Phrases toggle in Cards), quiz engine (mixed letters, words and phrases; choose, listen-and-pick, type-the-answer; silent speed grading), voice options (choose the Arabic voice and speed from Home), dialogues in the Read tab (6 conversations, chat bubbles, tap for meaning, speaker per line and Hear whole dialogue), Match (10 mixed items, two pages of 5, tap an Arabic tile then its meaning), and Match for Letters, Words and Phrases individually (a third button in each Home row; letters fill from the next groups), and graded short texts in the Read tab (12 texts, 3 levels, a Dialogues | Texts switch).
 
 Next, in order (agreed with the owner):
