@@ -8,6 +8,7 @@
 //  - A wrong answer gets a calm explanation, is spoken, and returns later in the round.
 
 import * as alphabet from "./alphabet.js";
+import * as marks from "./marks.js";
 import * as srs from "./srs.js";
 import * as db from "./db.js";
 import * as tts from "./tts.js";
@@ -31,6 +32,7 @@ const QUESTION_TEXT = {
 export function createLettersScreen({
   h,
   loadLetters = alphabet.loadLetters,
+  loadLessons = (letters) => marks.loadMarks(letters), // the Read it rows; if they cannot load, the grid still works
   store = db,
   speech = tts,
   now = () => Date.now(),
@@ -96,7 +98,10 @@ export function createLettersScreen({
 
   async function load() {
     const letters = await loadLetters();
-    const cards = (await store.getAllCards()).filter((c) => c.deck === alphabet.DECK);
+    const lessons = await Promise.resolve().then(() => loadLessons(letters)).catch(() => []);
+    const all = await store.getAllCards();
+    const cards = all.filter((c) => c.deck === alphabet.DECK);
+    const markCards = all.filter((c) => c.deck === marks.DECK);
     const dismissed = await store.getMeta(HEADS_UP_KEY, []);
     return {
       letters,
@@ -104,6 +109,9 @@ export function createLettersScreen({
       dismissed: Array.isArray(dismissed) ? dismissed : [],
       suggested: alphabet.suggestedGroup(cards, letters),
       mastery: alphabet.groupMastery(cards, letters),
+      lessons,
+      lessonMastery: marks.lessonMastery(markCards, lessons),
+      suggestedLesson: lessons.length > 0 ? marks.suggestedLesson(markCards, lessons) : null,
     };
   }
 
@@ -131,9 +139,23 @@ export function createLettersScreen({
       h("div", { class: "row spaced" }, link("#/alphabet/practice", "Practice", "btn")),
       h("p", { class: "small" }, "Picks the letters that could use the most practice. Stop whenever you like."));
 
+    // A "Read it" step is a full-width link under the group it follows. Every one is always open.
+    // "Up next" shows only once the group before it is well known, and only on the suggested lesson.
+    const readItRow = (lesson) => {
+      const ratio = ctx.lessonMastery.find((x) => x.lesson === lesson.id)?.ratio ?? 0;
+      const well = ratio >= WELL_KNOWN;
+      const groupKnown = (mastery[lesson.afterGroup - 1]?.ratio ?? 0) >= WELL_KNOWN;
+      const upNext = !well && groupKnown && ctx.suggestedLesson === lesson.id;
+      return h("a", { class: "dialogue-row", href: `#/readit/${lesson.id}` },
+        h("span", { class: "dialogue-title" }, lesson.title),
+        h("span", { class: "dialogue-meta" }, `${lesson.items.length} items`),
+        upNext ? h("span", { class: "tag" }, "Up next") : well ? h("span", { class: "tag quiet" }, "Well known") : null);
+    };
+
     const groups = alphabet.groupsOf(letters).map((group, i) => {
       const n = i + 1;
       const m = mastery[i];
+      const readIt = marks.lessonsAfterGroup(ctx.lessons, n);
       return h("section", { class: "card" },
         h("div", { class: "group-head" },
           h("h2", {}, `Group ${n}`),
@@ -144,7 +166,9 @@ export function createLettersScreen({
             h("a", { class: "letter-btn" + (learned(l) ? " learned" : ""), href: `#/alphabet/letter/${l.id}` },
               h("span", { class: "ar", lang: "ar" }, l.char),
               h("span", { class: "small" }, l.nameEn)))),
-        h("div", { class: "row spaced" }, link(`#/alphabet/practice/group/${n}`, "Practice this group", "btn secondary")));
+        h("div", { class: "row spaced" }, link(`#/alphabet/practice/group/${n}`, "Practice this group", "btn secondary")),
+        readIt.length > 0 ? h("h3", { class: "home-topic" }, "Read it") : null,
+        readIt.length > 0 ? h("div", { class: "dialogue-list" }, readIt.map(readItRow)) : null);
     });
 
     return h("div", {}, voiceBanner(), progress, ...groups);

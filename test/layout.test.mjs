@@ -19,6 +19,7 @@ import { chromium } from "playwright-core";
 const WWW = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../www");
 const ZWJ = String.fromCharCode(0x200d);
 const letters = JSON.parse(fs.readFileSync(path.join(WWW, "letters.json"), "utf8")).letters;
+const markLessons = JSON.parse(fs.readFileSync(path.join(WWW, "marks.json"), "utf8")).lessons;
 
 const chromePath = [
   process.env.CHROME,
@@ -30,6 +31,14 @@ const chromePath = [
 ].find((p) => p && fs.existsSync(p));
 const skip = chromePath ? false : "Chrome not found (set CHROME=/path/to/chrome)";
 
+// Like FAKE_TTS, but remembers the last text it was asked to say, so a test can tell which item a listen question is about.
+const FAKE_TTS_RECORD = () => {
+  window.__spoken = "";
+  window.Capacitor = { Plugins: { TextToSpeech: {
+    isLanguageSupported: async ({ lang }) => ({ supported: lang === "ar" }),
+    speak: async (o) => { window.__spoken = o.text; }, stop: async () => {}, openInstall: async () => {},
+  } } };
+};
 const SIZES = [{ w: 360, h: 640 }, { w: 393, h: 852 }, { w: 412, h: 915 }];
 const SHORT = (h) => h < 700; // matches the max-height: 700px rule in styles.css
 const FAKE_TTS = () => {
@@ -96,6 +105,34 @@ async function answerLetter(page, wrong) {
   }
   await page.locator(".choice", { hasText: pick }).first().click();
   await page.waitForTimeout(40);
+}
+
+/** Answer the current Read it question: right, or wrong (the longest explanation). Works for read and listen questions. */
+async function answerMarks(page, wrong) {
+  const info = await page.evaluate(() => ({
+    prompt: document.querySelector(".prompt")?.textContent ?? null,
+    choices: [...document.querySelectorAll(".choice")].map((c) => c.textContent),
+  }));
+  let right;
+  if (info.prompt) {
+    right = markLessons.flatMap((l) => l.items).find((i) => i.ar === info.prompt).tr;
+  } else {
+    await page.click(".speak-big");
+    await page.waitForTimeout(40);
+    right = await page.evaluate(() => window.__spoken);
+  }
+  // The worst case for height is the wrong pick with the same letters (its note adds "only the mark differs").
+  const all = markLessons.flatMap((l) => l.items);
+  const base = (x) => x.replace(/[\u064b-\u0652]/g, "");
+  const rightAr = info.prompt ?? right;
+  const arOf = (c) => (info.prompt ? all.find((i) => i.tr === c)?.ar : c) ?? "";
+  const wrongs = info.choices.filter((c) => c !== right);
+  const pick = wrong ? wrongs.find((c) => base(arOf(c)) === base(rightAr)) ?? wrongs[0] : right;
+  const index = info.choices.indexOf(pick);
+  assert.ok(index >= 0, `the ${wrong ? "wrong" : "right"} choice is on screen`);
+  await (await page.$$(".choice"))[index].click();
+  await page.waitForTimeout(40);
+  return info.prompt ? "read" : "listen";
 }
 
 async function newPage(w, h, withVoice) {
@@ -693,6 +730,137 @@ for (const { w, h } of SIZES) {
           assert.ok(m.docW <= m.vw, "no horizontal overflow");
           await page.click("a:text-is('Voice options')");
           await page.waitForSelector(".segmented button");
+          assert.deepEqual(errors, []);
+        } finally {
+          await ctx.close();
+        }
+      });
+    });
+
+    describe(`Read it at ${tag}`, { skip }, () => {
+      const open = async (font) => {
+        const ctx = await browser.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: 2, hasTouch: true, isMobile: true, bypassCSP: !!font });
+        const page = await ctx.newPage();
+        if (withVoice) await page.addInitScript(FAKE_TTS_RECORD);
+        const errors = [];
+        page.on("pageerror", (e) => errors.push(e.message));
+        const style = () => font ? page.addStyleTag({ content: `body, a, button, .ar { font-family: "${font}" !important; }` }) : null;
+        return { ctx, page, errors, style };
+      };
+
+      for (const font of [null, "FreeMono"]) it(`the Read it rows on the Letters grid fit, even with a tag beside them${font ? ` (taller font: ${font})` : ""}`, async () => {
+        const { ctx, page, errors, style } = await open(font);
+        try {
+          await page.goto(`${base}#/alphabet`);
+          await page.waitForSelector(".dialogue-row");
+          await style();
+          // Worst case: every row carries a tag next to its item count.
+          await page.evaluate(() => document.querySelectorAll(".dialogue-row").forEach((r, i) => {
+            const t = document.createElement("span");
+            t.className = i % 2 ? "tag quiet" : "tag";
+            t.textContent = i % 2 ? "Well known" : "Up next";
+            r.append(t);
+          }));
+          await page.waitForTimeout(100);
+          const m = await page.evaluate(() => ({
+            docW: document.documentElement.scrollWidth, vw: innerWidth,
+            rows: [...document.querySelectorAll(".dialogue-row")].map((r) => {
+              const b = r.getBoundingClientRect();
+              const title = r.querySelector(".dialogue-title").getBoundingClientRect();
+              const kids = [...r.children].map((c) => c.getBoundingClientRect());
+              return { h: b.height, left: b.left, right: b.right, clipped: r.scrollWidth > r.clientWidth + 1, titleW: title.width,
+                overlap: kids.some((k, i) => i > 0 && k.left < kids[i - 1].right - 0.5 && Math.abs(k.top - kids[i - 1].top) < 8) };
+            }),
+          }));
+          assert.equal(m.rows.length, 6);
+          assert.ok(m.docW <= m.vw, `no horizontal overflow (${m.docW} vs ${m.vw})`);
+          assert.ok(m.rows.every((r) => r.h >= 44 && r.left >= 0 && r.right <= m.vw), "rows are big enough and on screen");
+          assert.ok(m.rows.every((r) => !r.clipped), "nothing in a row is cut off");
+          assert.ok(m.rows.every((r) => !r.overlap), "title, count and tag never overlap");
+          assert.ok(m.rows.every((r) => r.titleW >= 60), `titles keep room to read (${m.rows.map((r) => Math.round(r.titleW)).join(", ")})`);
+          assert.deepEqual(errors, []);
+        } finally {
+          await ctx.close();
+        }
+      });
+
+      for (const font of [null, "FreeMono"]) it(`every lesson page fits sideways, items stay readable, Practice this lesson is reachable${font ? ` (taller font: ${font})` : ""}`, async () => {
+        const { ctx, page, errors, style } = await open(font);
+        try {
+          for (const lesson of markLessons) {
+            await page.goto(`${base}#/readit/${lesson.id}`);
+            await page.waitForSelector(".bubble");
+            await style();
+            await page.waitForTimeout(60);
+            const m = await page.evaluate(() => {
+              const box = (e) => { const r = e.getBoundingClientRect(); return { top: r.top, bottom: r.bottom, left: r.left, right: r.right, h: r.height }; };
+              const practice = [...document.querySelectorAll("a")].find((a) => a.textContent === "Practice this lesson");
+              const out = {
+                docW: document.documentElement.scrollWidth, vw: innerWidth,
+                tabTop: box(document.querySelector(".tabbar")).top, topBottom: box(document.querySelector(".topbar")).bottom,
+                bubbles: [...document.querySelectorAll(".bubble")].map(box),
+                speakers: [...document.querySelectorAll(".bubble-row .speak-btn")].map(box),
+                tags: [...document.querySelectorAll(".card .tag")].map((t) => ({ ...box(t), clipped: t.scrollWidth > t.clientWidth + 1 })),
+                practice: box(practice),
+              };
+              window.scrollTo(0, document.documentElement.scrollHeight);
+              const links = [...document.querySelectorAll(".row.spread a")].map(box);
+              out.endLinks = links;
+              out.bar = box(document.querySelector(".actions-bar"));
+              out.tabTopEnd = box(document.querySelector(".tabbar")).top;
+              return out;
+            });
+            const id = lesson.id;
+            assert.ok(m.docW <= m.vw, `${id}: no horizontal overflow (${m.docW} vs ${m.vw})`);
+            assert.equal(m.bubbles.length, lesson.items.length);
+            assert.ok(m.bubbles.every((b) => b.left >= 0 && b.right <= m.vw), `${id}: items stay on screen`);
+            assert.ok(m.bubbles.every((b) => b.right - b.left >= m.vw * 0.5), `${id}: items are wide enough to read`);
+            assert.equal(m.speakers.length, lesson.items.length, `${id}: every item has a speaker button`);
+            assert.ok(m.speakers.every((b) => b.h >= 32 && b.left >= 0 && b.right <= m.vw), `${id}: speaker buttons fit`);
+            assert.ok(m.tags.every((t) => t.left >= 0 && t.right <= m.vw && !t.clipped), `${id}: mark chips fit and are not cut off`);
+            assert.equal(m.tags.length, lesson.marks.length);
+            assert.ok(m.practice.h >= 40, `${id}: Practice this lesson is big enough`);
+            assert.ok(m.endLinks.every((l) => l.bottom <= m.tabTopEnd + 0.5 && (l.top >= m.bar.bottom - 0.5 || l.bottom <= m.bar.top + 0.5)),
+              `${id}: previous and next lessons are reachable and not covered by the pinned bar`);
+          }
+          assert.deepEqual(errors, []);
+        } finally {
+          await ctx.close();
+        }
+      });
+
+      for (const font of [null, "FreeMono"]) it(`practice fits in every lesson, read and listen questions, right and wrong answers; Next is always visible${font ? ` (taller font: ${font})` : ""}`, async () => {
+        const { ctx, page, errors, style } = await open(font);
+        try {
+          let listenSeen = 0;
+          // KNOWN GAP (CLAUDE.md, Known gaps): with the deliberately tall stand-in font, a wrong answer's three note lines
+          // can run past one screen on the smaller phones. Measured worst cases, always on a wrong answer with the longest note:
+          // 33px (a listen question) and 22px (a read question) at 360x640, 6px at 393x852. The normal font must fit exactly;
+          // the tall font is held to 40px so it cannot get worse until the owner picks a fix. Next stays visible either way
+          // (asserted separately).
+          const slack = font ? 40 : 1;
+          for (const lesson of markLessons) {
+            await page.goto(`${base}#/readit/${lesson.id}/practice`);
+            await page.waitForSelector(".choice");
+            await style();
+            await page.waitForTimeout(100);
+            for (const wrong of [false, true, true, true]) {
+              let m = await measure(page);
+              assert.equal(m.choices.length, 4, `${lesson.id}: four answers`);
+              assert.ok(m.choices.every((c) => c.bottom <= m.tabTop + 0.5), `${lesson.id}: all 4 answers above the tab bar`);
+              assert.equal(new Set(m.choices.map((c) => c.left)).size, SHORT(h) ? 2 : 1, `${lesson.id}: ${SHORT(h) ? "short screens use 2 columns" : "one column for one-handed use"}`);
+              if (withVoice) assert.ok(m.docH <= m.vh + slack, `${lesson.id}: question needs no scrolling (doc ${m.docH} vs ${m.vh})`);
+              const kind = await answerMarks(page, wrong);
+              if (kind === "listen") listenSeen++;
+              m = await measure(page);
+              assert.ok(m.scrollY === 0 && inView(m, m.next), `${lesson.id}: Next visible after a ${wrong ? "wrong" : "right"} ${kind} answer`);
+              if (withVoice) assert.ok(m.docH <= m.vh + slack, `${lesson.id}: no scrolling after a ${wrong ? "wrong" : "right"} ${kind} answer (doc ${m.docH} vs ${m.vh})`);
+              await page.getByRole("button", { name: /^(Next|Finish round)$/ }).click();
+              await page.waitForTimeout(30);
+            }
+          }
+          if (withVoice) assert.ok(listenSeen > 0, "listen questions were checked too");
+          else assert.equal(listenSeen, 0, "no listen questions without a voice");
           assert.deepEqual(errors, []);
         } finally {
           await ctx.close();

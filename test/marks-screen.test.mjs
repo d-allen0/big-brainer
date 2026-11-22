@@ -20,6 +20,7 @@ globalThis.fetch = async (url) => {
 };
 
 const { createMarksScreen } = await import(path.join(WWW, "marks-screen.js"));
+const { createLettersScreen } = await import(path.join(WWW, "letters-screen.js"));
 const A = await import(path.join(WWW, "alphabet.js"));
 const M = await import(path.join(WWW, "marks.js"));
 
@@ -423,5 +424,99 @@ describe("Read-it: in the app", () => {
     await env.until(() => $("#screen-title").textContent === "Letters", "Letters grid");
     assert.equal(location.hash, "#/alphabet");
     assert.equal($$(".tabbar a[aria-current]")[0]?.dataset.route, "alphabet");
+  });
+});
+
+// ================= the Read it rows on the Letters grid =================
+
+describe("Read-it: rows on the Letters grid", () => {
+  const rows = () => $$(".dialogue-row");
+  const rowFor = (id) => rows().find((r) => r.getAttribute("href") === `#/readit/${id}`);
+  const tagOf = (id) => rowFor(id)?.querySelector(".tag")?.textContent ?? null;
+  const learnedLesson = (lesson) => M.cardsForLesson(lesson, T0).map((c) => ({ ...c, reps: 3, lastReviewed: T0 }));
+
+  async function mountGrid({ store = memoryStore(), loadLessons = async () => lessons } = {}) {
+    const screen = createLettersScreen({
+      h, loadLetters: async () => letters, loadLessons, store, speech: fakeSpeech(), now: () => T0, rng: A.seededRng(1),
+    });
+    $("#view").replaceChildren(await screen({ parts: ["alphabet"], setTitle: () => {} }));
+    await sleep(20);
+  }
+
+  it("puts a row under each group that has a lesson, and none under the others", async () => {
+    await go("#/alphabet", () => $$(".letter-btn").length > 0);
+    audit("letters grid");
+    assert.equal(rows().length, 6);
+    const sections = $$("#view section.card");
+    assert.equal(sections.length, 8);
+    sections.forEach((section, i) => {
+      const group = i + 1;
+      const expected = M.lessonsAfterGroup(lessons, group).map((l) => `#/readit/${l.id}`);
+      const got = [...section.querySelectorAll(".dialogue-row")].map((r) => r.getAttribute("href"));
+      assert.deepEqual(got, expected, `group ${group}`);
+      const heading = [...section.querySelectorAll("h3")].some((x) => x.textContent === "Read it");
+      assert.equal(heading, expected.length > 0, `group ${group} heading`);
+    });
+  });
+
+  it("each row is a plain link with the lesson title and its item count", async () => {
+    await mountGrid();
+    for (const l of lessons) {
+      const row = rowFor(l.id);
+      assert.equal(row.tagName, "A");
+      assert.equal(row.querySelector(".dialogue-title").textContent, l.title);
+      assert.equal(row.querySelector(".dialogue-meta").textContent, `${l.items.length} items`);
+    }
+  });
+
+  it("shows no tags before any progress, and opens every lesson all the same", async () => {
+    await mountGrid();
+    assert.equal($$(".dialogue-row .tag").length, 0);
+    assert.equal(rows().length, 6, "every lesson is open from day one");
+  });
+
+  it("marks Up next once the group before it is well known", async () => {
+    await mountGrid({ store: memoryStore({ cards: learnedGroups([1]) }) });
+    assert.equal(tagOf("short_vowels"), "Up next");
+    assert.equal(tagOf("sukun"), null, "group 3 is not well known yet");
+  });
+
+  it("marks a lesson Well known when its cards are learned, and moves Up next on", async () => {
+    const cards = [...learnedGroups([1, 2, 3]), ...learnedLesson(lesson1)];
+    await mountGrid({ store: memoryStore({ cards }) });
+    assert.equal(tagOf("short_vowels"), "Well known");
+    assert.ok(rowFor("short_vowels").querySelector(".tag.quiet"));
+    assert.equal(tagOf("sukun"), "Up next");
+    assert.equal(tagOf("shadda"), null);
+    assert.equal($$(".dialogue-row .tag:not(.quiet)").length, 1, "one Up next at a time");
+  });
+
+  it("never blocks: with nothing learned yet every row still opens its lesson", async () => {
+    await mountGrid({ store: memoryStore({ cards: learnedLesson(lessons[5]) }) });
+    assert.equal(tagOf("long_vowels"), "Well known", "progress shows even when earlier steps were skipped");
+    assert.deepEqual(rows().map((r) => r.getAttribute("href")), lessons.map((l) => `#/readit/${l.id}`));
+  });
+
+  it("Read it progress does not change the letters progress", async () => {
+    await mountGrid({ store: memoryStore({ cards: learnedLesson(lesson1) }) });
+    assert.match(text(), /0 of 28/);
+  });
+
+  it("the grid still works when the lessons cannot be loaded", async () => {
+    for (const loadLessons of [async () => { throw new Error("bad data"); }, () => { throw new Error("sync failure"); }]) {
+      await mountGrid({ loadLessons });
+      assert.equal(rows().length, 0);
+      assert.equal($$("section.card").length, 8);
+      assert.equal($$(".letter-btn").length, 28);
+      assert.ok($$("a").some((a) => a.getAttribute("href") === "#/alphabet/practice/group/1"));
+      assert.ok(!$$("h3").some((x) => x.textContent === "Read it"));
+    }
+  });
+
+  it("a row opens the lesson in the app", async () => {
+    await go("#/alphabet", () => $$(".letter-btn").length > 0);
+    rowFor("tanwin").click();
+    await env.until(() => $("#screen-title").textContent === "Tanwin: the -n ending", "tanwin lesson");
+    assert.equal(location.hash, "#/readit/tanwin");
   });
 });
