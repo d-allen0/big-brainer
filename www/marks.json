@@ -1,0 +1,483 @@
+{
+ "version": 1,
+ "note": "Read-it lessons placed after letter groups. Order is teaching order. Each item uses only letters from groups up to afterGroup, plus marks and special letters taught so far. Written by Claude; UNREVIEWED by a fluent speaker.",
+ "reviewed": false,
+ "lessons": [
+  {
+   "id": "short_vowels",
+   "afterGroup": 1,
+   "title": "Short vowels",
+   "intro": [
+    "Arabic letters are consonants. Small marks above or below a letter tell you the short vowel that follows it.",
+    "A slanted line above the letter is fatha (a). A slanted line below is kasra (i). A small curl above is damma (u).",
+    "The letter alif after a fatha makes the vowel long: bā."
+   ],
+   "reminder": "Fatha is a line above (a), kasra a line below (i), damma a small curl above (u).",
+   "marks": [
+    "fatha",
+    "kasra",
+    "damma"
+   ],
+   "introduces": [],
+   "items": [
+    {
+     "id": "ba",
+     "kind": "sound",
+     "ar": "بَ",
+     "tr": "ba"
+    },
+    {
+     "id": "bi",
+     "kind": "sound",
+     "ar": "بِ",
+     "tr": "bi"
+    },
+    {
+     "id": "bu",
+     "kind": "sound",
+     "ar": "بُ",
+     "tr": "bu"
+    },
+    {
+     "id": "ta",
+     "kind": "sound",
+     "ar": "تَ",
+     "tr": "ta"
+    },
+    {
+     "id": "ti",
+     "kind": "sound",
+     "ar": "تِ",
+     "tr": "ti"
+    },
+    {
+     "id": "tu",
+     "kind": "sound",
+     "ar": "تُ",
+     "tr": "tu"
+    },
+    {
+     "id": "tha",
+     "kind": "sound",
+     "ar": "ثَ",
+     "tr": "tha"
+    },
+    {
+     "id": "thi",
+     "kind": "sound",
+     "ar": "ثِ",
+     "tr": "thi"
+    },
+    {
+     "id": "thu",
+     "kind": "sound",
+     "ar": "ثُ",
+     "tr": "thu"
+    },
+    {
+     "id": "baa",
+     "kind": "sound",
+     "ar": "بَا",
+     "tr": "bā"
+    },
+    {
+     "id": "taa",
+     "kind": "sound",
+     "ar": "تَا",
+     "tr": "tā"
+    },
+    {
+     "id": "bab",
+     "kind": "word",
+     "ar": "بَاب",
+     "tr": "bāb",
+     "en": "door"
+    }
+   ]
+  },
+  {
+   "id": "sukun",
+   "afterGroup": 3,
+   "title": "Sukun: no vowel",
+   "intro": [
+    "A small circle above a letter is sukun. It means the letter has no vowel, so it joins the sound before it.",
+    "That lets a syllable end in a consonant: bar, dars, bard."
+   ],
+   "reminder": "A small circle above a letter (sukun) means no vowel: the letter closes the syllable.",
+   "marks": [
+    "sukun"
+   ],
+   "introduces": [],
+   "items": [
+    {
+     "id": "bar",
+     "kind": "sound",
+     "ar": "بَرْ",
+     "tr": "bar"
+    },
+    {
+     "id": "had",
+     "kind": "sound",
+     "ar": "حَدْ",
+     "tr": "ḥad"
+    },
+    {
+     "id": "jab",
+     "kind": "sound",
+     "ar": "جَبْ",
+     "tr": "jab"
+    },
+    {
+     "id": "dhar",
+     "kind": "sound",
+     "ar": "ذَرْ",
+     "tr": "dhar"
+    },
+    {
+     "id": "bard",
+     "kind": "word",
+     "ar": "بَرْد",
+     "tr": "bard",
+     "en": "cold"
+    },
+    {
+     "id": "harb",
+     "kind": "word",
+     "ar": "حَرْب",
+     "tr": "ḥarb",
+     "en": "war"
+    },
+    {
+     "id": "badr",
+     "kind": "word",
+     "ar": "بَدْر",
+     "tr": "badr",
+     "en": "full moon"
+    },
+    {
+     "id": "darb",
+     "kind": "word",
+     "ar": "دَرْب",
+     "tr": "darb",
+     "en": "path"
+    }
+   ]
+  },
+  {
+   "id": "shadda",
+   "afterGroup": 4,
+   "title": "Shadda: double letters",
+   "intro": [
+    "A small w-shaped mark above a letter is shadda. It means the letter is said twice: once to end one syllable, once to start the next.",
+    "A shadda usually sits with a vowel mark: bba, ddi, ssu."
+   ],
+   "reminder": "Shadda (a small w above the letter) doubles it: say the letter twice.",
+   "marks": [
+    "shadda"
+   ],
+   "introduces": [],
+   "items": [
+    {
+     "id": "bba",
+     "kind": "sound",
+     "ar": "بَّ",
+     "tr": "bba"
+    },
+    {
+     "id": "ddi",
+     "kind": "sound",
+     "ar": "دِّ",
+     "tr": "ddi"
+    },
+    {
+     "id": "ssu",
+     "kind": "sound",
+     "ar": "سُّ",
+     "tr": "ssu"
+    },
+    {
+     "id": "jadd",
+     "kind": "word",
+     "ar": "جَدّ",
+     "tr": "jadd",
+     "en": "grandfather"
+    },
+    {
+     "id": "hubb",
+     "kind": "word",
+     "ar": "حُبّ",
+     "tr": "ḥubb",
+     "en": "love"
+    },
+    {
+     "id": "sirr",
+     "kind": "word",
+     "ar": "سِرّ",
+     "tr": "sirr",
+     "en": "secret"
+    },
+    {
+     "id": "harr",
+     "kind": "word",
+     "ar": "حَرّ",
+     "tr": "ḥarr",
+     "en": "heat"
+    },
+    {
+     "id": "darrasa",
+     "kind": "word",
+     "ar": "دَرَّسَ",
+     "tr": "darrasa",
+     "en": "he taught"
+    },
+    {
+     "id": "sadd",
+     "kind": "word",
+     "ar": "سَدّ",
+     "tr": "sadd",
+     "en": "dam"
+    }
+   ]
+  },
+  {
+   "id": "tanwin",
+   "afterGroup": 5,
+   "title": "Tanwin: the -n ending",
+   "intro": [
+    "Doubled vowel marks at the end of a word are tanwin. They add an n sound: -an, -un or -in.",
+    "They mark a noun as indefinite, like \"a door\". Fathatan is usually written with an alif after it."
+   ],
+   "reminder": "Two marks on the last letter add -n: fatha pair is -an, damma pair is -un, kasra pair is -in.",
+   "marks": [
+    "fathatan",
+    "dammatan",
+    "kasratan"
+   ],
+   "introduces": [],
+   "items": [
+    {
+     "id": "baban",
+     "kind": "word",
+     "ar": "بَابًا",
+     "tr": "bāban",
+     "en": "a door"
+    },
+    {
+     "id": "tabcan",
+     "kind": "word",
+     "ar": "طَبْعًا",
+     "tr": "ṭabʿan",
+     "en": "of course"
+    },
+    {
+     "id": "jiddan",
+     "kind": "word",
+     "ar": "جِدًّا",
+     "tr": "jiddan",
+     "en": "very"
+    },
+    {
+     "id": "babun",
+     "kind": "word",
+     "ar": "بَابٌ",
+     "tr": "bābun",
+     "en": "a door"
+    },
+    {
+     "id": "shajarun",
+     "kind": "word",
+     "ar": "شَجَرٌ",
+     "tr": "shajarun",
+     "en": "a tree"
+    },
+    {
+     "id": "darsun",
+     "kind": "word",
+     "ar": "دَرْسٌ",
+     "tr": "darsun",
+     "en": "a lesson"
+    },
+    {
+     "id": "babin",
+     "kind": "word",
+     "ar": "بَابٍ",
+     "tr": "bābin",
+     "en": "a door (of a door)"
+    },
+    {
+     "id": "cadadin",
+     "kind": "word",
+     "ar": "عَدَدٍ",
+     "tr": "ʿadadin",
+     "en": "a number"
+    }
+   ]
+  },
+  {
+   "id": "ta_marbuta",
+   "afterGroup": 7,
+   "title": "Round ta at word ends",
+   "intro": [
+    "A round letter with two dots at the end of a word is ta marbuta. It usually marks a feminine word.",
+    "At the end of a word it is read as a short a, and the letter before it takes fatha: madrasa."
+   ],
+   "reminder": "Round ta (two dots) only ends a word. Read it as a short a.",
+   "marks": [],
+   "introduces": [
+    "ة"
+   ],
+   "items": [
+    {
+     "id": "madrasa",
+     "kind": "word",
+     "ar": "مَدْرَسَة",
+     "tr": "madrasa",
+     "en": "school"
+    },
+    {
+     "id": "kalima",
+     "kind": "word",
+     "ar": "كَلِمَة",
+     "tr": "kalima",
+     "en": "word"
+    },
+    {
+     "id": "shajara",
+     "kind": "word",
+     "ar": "شَجَرَة",
+     "tr": "shajara",
+     "en": "tree"
+    },
+    {
+     "id": "qitta",
+     "kind": "word",
+     "ar": "قِطَّة",
+     "tr": "qiṭṭa",
+     "en": "cat"
+    },
+    {
+     "id": "samaka",
+     "kind": "word",
+     "ar": "سَمَكَة",
+     "tr": "samaka",
+     "en": "fish"
+    },
+    {
+     "id": "ghurfa",
+     "kind": "word",
+     "ar": "غُرْفَة",
+     "tr": "ghurfa",
+     "en": "room"
+    },
+    {
+     "id": "baqara",
+     "kind": "word",
+     "ar": "بَقَرَة",
+     "tr": "baqara",
+     "en": "cow"
+    },
+    {
+     "id": "thalatha",
+     "kind": "word",
+     "ar": "ثَلَاثَة",
+     "tr": "thalātha",
+     "en": "three"
+    }
+   ]
+  },
+  {
+   "id": "long_vowels",
+   "afterGroup": 8,
+   "title": "Long vowels and glides",
+   "intro": [
+    "Waw after a damma makes a long ū. Ya after a kasra makes a long ī. Alif after a fatha makes a long ā.",
+    "Waw or ya with a sukun after a fatha makes a glide: aw as in yawm, ay as in bayt."
+   ],
+   "reminder": "Long vowels: ā, ū, ī take two beats. A sukun on waw or ya after fatha makes aw or ay.",
+   "marks": [],
+   "introduces": [],
+   "items": [
+    {
+     "id": "buu",
+     "kind": "sound",
+     "ar": "بُو",
+     "tr": "bū"
+    },
+    {
+     "id": "bii",
+     "kind": "sound",
+     "ar": "بِي",
+     "tr": "bī"
+    },
+    {
+     "id": "baw",
+     "kind": "sound",
+     "ar": "بَوْ",
+     "tr": "baw"
+    },
+    {
+     "id": "bay",
+     "kind": "sound",
+     "ar": "بَيْ",
+     "tr": "bay"
+    },
+    {
+     "id": "nur",
+     "kind": "word",
+     "ar": "نُور",
+     "tr": "nūr",
+     "en": "light"
+    },
+    {
+     "id": "suq",
+     "kind": "word",
+     "ar": "سُوق",
+     "tr": "sūq",
+     "en": "market"
+    },
+    {
+     "id": "kabir",
+     "kind": "word",
+     "ar": "كَبِير",
+     "tr": "kabīr",
+     "en": "big"
+    },
+    {
+     "id": "halib",
+     "kind": "word",
+     "ar": "حَلِيب",
+     "tr": "ḥalīb",
+     "en": "milk"
+    },
+    {
+     "id": "yawm",
+     "kind": "word",
+     "ar": "يَوْم",
+     "tr": "yawm",
+     "en": "day"
+    },
+    {
+     "id": "bayt",
+     "kind": "word",
+     "ar": "بَيْت",
+     "tr": "bayt",
+     "en": "house"
+    },
+    {
+     "id": "cayn",
+     "kind": "word",
+     "ar": "عَيْن",
+     "tr": "ʿayn",
+     "en": "eye"
+    },
+    {
+     "id": "lawn",
+     "kind": "word",
+     "ar": "لَوْن",
+     "tr": "lawn",
+     "en": "colour"
+    }
+   ]
+  }
+ ]
+}
